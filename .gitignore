@@ -1,4 +1,39 @@
-.secrets/
+# Raw videos / downloads / uploads (local-only)
+downloads/
+uploads/
+clips_*/
+*.mp4
+*.webm
+*.mov
+*.mkv
+
+# Render outputs / job folders
+outputs/
+
+# Generated reproducibility artifacts (local-only)
+*.render.cmd
+*.ffmpeg.txt
+render_manifest.json
+status.json
+
+# Python caches
 __pycache__/
 *.pyc
 
+# Secrets / env
+.secrets/
+.env
+.env.*
+
+# Keep empty scaffold folders in repo
+!uploads/
+uploads/*
+!uploads/.gitkeep
+
+!downloads/
+downloads/*
+!downloads/.gitkeep
+
+!outputs/
+outputs/*
+!outputs/.gitkeep

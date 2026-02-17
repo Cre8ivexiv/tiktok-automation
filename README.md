@@ -144,3 +144,9 @@ Each process job writes to:
 4. Click **Connect TikTok** and complete OAuth consent.
 5. Return to UI and click **Upload Drafts**.
 6. Show upload log updates and resulting `status.json`.
+
+## Repo Hygiene
+- Videos are local-only and should not be committed.
+- Put source videos under `uploads/...` or `downloads/...` as needed by your workflow.
+- Rendered outputs go under `outputs/...`.
+- Secrets belong in `.secrets/` (and `.env*`) and are never committed.
