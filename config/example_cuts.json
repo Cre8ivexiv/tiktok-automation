@@ -1,0 +1,16 @@
+{
+  "parts": [
+    {
+      "start": "00:00:00",
+      "end": "00:01:10"
+    },
+    {
+      "start": "00:01:10",
+      "end": "00:02:20"
+    }
+  ],
+  "crop_top_px": 120,
+  "output_width": 1080,
+  "output_height": 1920
+}
+

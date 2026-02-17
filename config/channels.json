@@ -1,0 +1,20 @@
+{
+  "channels": {
+    "example_channel": {
+      "provider": "mock",
+      "account_id": "acct_example_001",
+      "token": "replace_with_real_token_if_needed"
+    },
+    "anime_account": {
+      "provider": "mock",
+      "account_id": "acct_anime_002",
+      "token": "replace_with_real_token_if_needed"
+    },
+    "anime recaps": {
+      "account_display": "@anirecommends",
+      "tiktok_url": "https://www.tiktok.com/@anirecommends",
+      "provider": "mock",
+      "provider_account_id": "MOCK_ANIRECOMMENDS"
+    }
+  }
+}
