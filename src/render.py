@@ -387,22 +387,28 @@ def build_video_filter(
         raise ValueError("video_y_scale must be greater than 0.")
     if y_scale_mode not in {"manual", "fill", "letterbox"}:
         raise ValueError("y_scale_mode must be one of: manual, fill, letterbox")
-    max_edge_bar_px = max(0, (int(output_height) // 2) - 1)
-    safe_edge_bar_px = max(0, min(int(edge_bar_px), max_edge_bar_px))
-    inner_h = int(output_height) - (2 * safe_edge_bar_px)
+    safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
+    safe_crop_top_px = max(0, int(crop_top_px))
     filters: list[str] = []
 
     if y_scale_mode == "letterbox":
         filters.append(f"scale={output_width}:-2")
-        filters.append(f"pad={output_width}:{inner_h}:(ow-iw)/2:(oh-ih)/2:color=black")
-        filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:{safe_edge_bar_px}:color=black")
+        if safe_crop_top_px > 0:
+            filters.append(
+                f"crop=iw:max(2\\,ih-{safe_crop_top_px}):0:min({safe_crop_top_px}\\,ih-2)"
+            )
+        filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2:color=black")
+        if safe_edge_bar_px > 0:
+            filters.append(f"drawbox=x=0:y=0:w=iw:h={safe_edge_bar_px}:color=black@1.0:t=fill")
+            filters.append(
+                f"drawbox=x=0:y=ih-{safe_edge_bar_px}:w=iw:h={safe_edge_bar_px}:color=black@1.0:t=fill"
+            )
         if part_overlay_enabled:
             label_text = _escape_drawtext_text(f"Part {part_number}")
             if part_label_position == "top-left":
                 x_expr = "40"
             else:
                 x_expr = "(w-text_w)/2"
-            y_expr = f"{safe_edge_bar_px + 10}"
 
             font_arg = ""
             if font_file:
@@ -420,7 +426,7 @@ def build_video_filter(
                 "boxcolor=black@0.45:"
                 "boxborderw=14:"
                 f"x={x_expr}:"
-                f"y={y_expr}"
+                "y=40"
             )
         filters.append("setsar=1")
         return ",".join(filters)
@@ -508,8 +514,7 @@ def render_parts(
     if y_scale_mode not in {"manual", "fill", "letterbox"}:
         raise ValueError("y_scale_mode must be one of: manual, fill, letterbox")
 
-    max_edge_bar_px = max(0, (int(output_height) // 2) - 1)
-    safe_edge_bar_px = max(0, min(int(edge_bar_px), max_edge_bar_px))
+    safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
 
     rendered_parts: list[RenderedPart] = []
     segment_rows = [
