@@ -165,6 +165,7 @@ def render_pipeline(
     crop_top_px: int,
     title_mask_px: int,
     video_y_scale: float,
+    y_scale_mode: str,
     render_preset: str,
     output_width: int,
     output_height: int,
@@ -174,7 +175,7 @@ def render_pipeline(
     ffprobe_bin: str,
     crf: int,
     preset: str,
-) -> tuple[list[RenderedPart], dict[str, int]]:
+) -> tuple[list[RenderedPart], dict[str, Any]]:
     segments, cuts_overrides = resolve_segments(
         input_video=input_video,
         part_seconds=part_seconds,
@@ -192,6 +193,7 @@ def render_pipeline(
         crop_top_px=effective_crop_top,
         title_mask_px=title_mask_px,
         video_y_scale=video_y_scale,
+        y_scale_mode=y_scale_mode,
         render_preset=render_preset,
         output_width=effective_out_w,
         output_height=effective_out_h,
@@ -206,6 +208,7 @@ def render_pipeline(
         "crop_top_px": effective_crop_top,
         "title_mask_px": title_mask_px,
         "video_y_scale": video_y_scale,
+        "y_scale_mode": y_scale_mode,
         "render_preset": render_preset,
         "output_width": effective_out_w,
         "output_height": effective_out_h,
@@ -228,6 +231,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         crop_top_px=args.crop_top_px,
         title_mask_px=args.title_mask_px,
         video_y_scale=args.video_y_scale,
+        y_scale_mode=args.y_scale_mode,
         render_preset=args.render_preset,
         output_width=args.output_width,
         output_height=args.output_height,
@@ -320,6 +324,7 @@ def cmd_process(args: argparse.Namespace) -> int:
         crop_top_px=args.crop_top_px,
         title_mask_px=args.title_mask_px,
         video_y_scale=args.video_y_scale,
+        y_scale_mode=args.y_scale_mode,
         render_preset=args.render_preset,
         output_width=args.output_width,
         output_height=args.output_height,
@@ -413,6 +418,7 @@ def cmd_run_folder(args: argparse.Namespace) -> int:
             crop_top_px=args.crop_top_px,
             title_mask_px=args.title_mask_px,
             video_y_scale=args.video_y_scale,
+            y_scale_mode=args.y_scale_mode,
             render_preset=args.render_preset,
             output_width=args.output_width,
             output_height=args.output_height,
@@ -480,9 +486,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Auto split duration per part in seconds (default: 70)",
     )
     render_parser.add_argument("--cuts", type=Path, default=None, help="Optional cuts.json override")
-    render_parser.add_argument("--crop-top-px", type=int, default=120, help="Top pixels to crop")
-    render_parser.add_argument("--title-mask-px", type=int, default=180, help="Top title mask height in pixels")
+    render_parser.add_argument("--crop-top-px", type=int, default=0, help="Top pixels to crop")
+    render_parser.add_argument("--title-mask-px", type=int, default=0, help="Top title mask height in pixels")
     render_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
+    render_parser.add_argument(
+        "--y-scale-mode",
+        choices=["manual", "fill"],
+        default="fill",
+        help="manual=use video-y-scale directly, fill=auto-bump to fill frame height",
+    )
     render_parser.add_argument("--render-preset", type=str, default="legacy", help="Rendering preset")
     render_parser.add_argument("--output-width", type=int, default=1080, help="Output width")
     render_parser.add_argument("--output-height", type=int, default=1920, help="Output height")
@@ -540,9 +552,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Auto split duration per part in seconds (default: 70)",
     )
     process_parser.add_argument("--cuts", type=Path, default=None, help="Optional cuts.json override")
-    process_parser.add_argument("--crop-top-px", type=int, default=120, help="Top pixels to crop")
-    process_parser.add_argument("--title-mask-px", type=int, default=180, help="Top title mask height in pixels")
+    process_parser.add_argument("--crop-top-px", type=int, default=0, help="Top pixels to crop")
+    process_parser.add_argument("--title-mask-px", type=int, default=0, help="Top title mask height in pixels")
     process_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
+    process_parser.add_argument(
+        "--y-scale-mode",
+        choices=["manual", "fill"],
+        default="fill",
+        help="manual=use video-y-scale directly, fill=auto-bump to fill frame height",
+    )
     process_parser.add_argument("--render-preset", type=str, default="legacy", help="Rendering preset")
     process_parser.add_argument("--output-width", type=int, default=1080, help="Output width")
     process_parser.add_argument("--output-height", type=int, default=1920, help="Output height")
@@ -616,9 +634,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=70,
         help="Auto split duration per part in seconds (default: 70)",
     )
-    run_folder_parser.add_argument("--crop-top-px", type=int, default=120, help="Top pixels to crop")
-    run_folder_parser.add_argument("--title-mask-px", type=int, default=180, help="Top title mask height in pixels")
+    run_folder_parser.add_argument("--crop-top-px", type=int, default=0, help="Top pixels to crop")
+    run_folder_parser.add_argument("--title-mask-px", type=int, default=0, help="Top title mask height in pixels")
     run_folder_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
+    run_folder_parser.add_argument(
+        "--y-scale-mode",
+        choices=["manual", "fill"],
+        default="fill",
+        help="manual=use video-y-scale directly, fill=auto-bump to fill frame height",
+    )
     run_folder_parser.add_argument("--render-preset", type=str, default="legacy", help="Rendering preset")
     run_folder_parser.add_argument("--output-width", type=int, default=1080, help="Output width")
     run_folder_parser.add_argument("--output-height", type=int, default=1920, help="Output height")

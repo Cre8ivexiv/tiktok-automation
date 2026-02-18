@@ -29,9 +29,10 @@ class ProcessRequest(BaseModel):
     url: str = Field(..., min_length=1)
     title: str = Field(..., min_length=1)
     channel: str = Field(..., min_length=1)
-    crop_top_px: int = 120
-    title_mask_px: int = 180
+    crop_top_px: int = 0
+    title_mask_px: int = 0
     video_y_scale: float = 2.08
+    y_scale_mode: str = "fill"
     interval_min: int = 30
     part_seconds: int = 70
     output_width: int = 1080
@@ -65,6 +66,7 @@ def _process_task(job_id: str, request: ProcessRequest) -> None:
             crop_top_px=request.crop_top_px,
             title_mask_px=request.title_mask_px,
             video_y_scale=request.video_y_scale,
+            y_scale_mode=request.y_scale_mode,
             output_width=request.output_width,
             output_height=request.output_height,
             render_preset=request.render_preset,

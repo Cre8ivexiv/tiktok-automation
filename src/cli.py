@@ -32,6 +32,7 @@ def cmd_process(args: argparse.Namespace) -> int:
         crop_top_px=args.crop_top_px,
         title_mask_px=args.title_mask_px,
         video_y_scale=args.video_y_scale,
+        y_scale_mode=args.y_scale_mode,
         output_width=args.output_width,
         output_height=args.output_height,
         render_preset=args.render_preset,
@@ -83,9 +84,14 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument("--channel", type=str, required=True)
     process_parser.add_argument("--interval-min", type=int, default=30)
     process_parser.add_argument("--part-seconds", type=int, default=70)
-    process_parser.add_argument("--crop-top-px", type=int, default=120)
-    process_parser.add_argument("--title-mask-px", type=int, default=180)
+    process_parser.add_argument("--crop-top-px", type=int, default=0)
+    process_parser.add_argument("--title-mask-px", type=int, default=0)
     process_parser.add_argument("--video-y-scale", type=float, default=2.08)
+    process_parser.add_argument(
+        "--y-scale-mode",
+        choices=["manual", "fill"],
+        default="fill",
+    )
     process_parser.add_argument("--render-preset", type=str, default="legacy")
     process_parser.add_argument("--output-width", type=int, default=1080)
     process_parser.add_argument("--output-height", type=int, default=1920)

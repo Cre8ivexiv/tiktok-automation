@@ -149,6 +149,68 @@ def _safe_probe_short(input_video: Path, ffprobe_bin: str) -> dict[str, Any]:
     }
 
 
+def _probe_video_dimensions(input_video: Path, ffprobe_bin: str) -> tuple[int, int] | None:
+    cmd = [
+        ffprobe_bin,
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=width,height",
+        "-of",
+        "csv=p=0:s=x",
+        str(input_video),
+    ]
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        return None
+
+    raw = result.stdout.strip()
+    if not raw or "x" not in raw:
+        return None
+    width_text, height_text = raw.split("x", 1)
+    try:
+        width = int(width_text.strip())
+        height = int(height_text.strip())
+    except ValueError:
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    return width, height
+
+
+def _compute_y_scale_debug(
+    *,
+    source_width: int,
+    source_height: int,
+    output_width: int,
+    output_height: int,
+    video_y_scale: float,
+    y_scale_mode: str,
+) -> dict[str, float | str]:
+    fit_scale = min(output_width / source_width, output_height / source_height)
+    fit_width = source_width * fit_scale
+    fit_height = source_height * fit_scale
+    required_fill_scale = output_height / fit_height if fit_height > 0 else 1.0
+    if y_scale_mode == "fill":
+        effective_y_scale = max(video_y_scale, required_fill_scale)
+    else:
+        effective_y_scale = video_y_scale
+
+    return {
+        "source_width": float(source_width),
+        "source_height": float(source_height),
+        "fit_width": float(fit_width),
+        "fit_height": float(fit_height),
+        "ih_after_fit": float(fit_height),
+        "computed_required_fill_scale": float(required_fill_scale),
+        "video_y_scale_requested": float(video_y_scale),
+        "effective_y_scale_used": float(effective_y_scale),
+        "y_scale_mode": y_scale_mode,
+    }
+
+
 def _short_probe_diff(good: dict[str, Any], new: dict[str, Any]) -> list[str]:
     keys = ["codec", "resolution", "sar", "dar", "fps", "bitrate_stream", "bitrate_format"]
     rows: list[str] = []
@@ -295,8 +357,9 @@ def build_video_filter(
     output_width: int,
     output_height: int,
     video_y_scale: float = 2.08,
+    y_scale_mode: str = "fill",
     render_preset: str = "legacy",
-    title_mask_px: int = 180,
+    title_mask_px: int = 0,
     part_overlay_enabled: bool = True,
     part_label_position: str = "top-center",
     font_file: Path | None = None,
@@ -312,13 +375,19 @@ def build_video_filter(
     safe_video_y_scale = float(video_y_scale)
     if safe_video_y_scale <= 0:
         raise ValueError("video_y_scale must be greater than 0.")
+    if y_scale_mode not in {"manual", "fill"}:
+        raise ValueError("y_scale_mode must be one of: manual, fill")
 
     filters: list[str] = []
 
     # Legacy preset filter chain (kept stable):
     # fit inside frame -> vertical-only scale -> center-crop height -> pad to frame -> drawtext
     filters.append(f"scale={output_width}:{output_height}:force_original_aspect_ratio=decrease")
-    filters.append(f"scale=iw:trunc(ih*{safe_video_y_scale:g}/2)*2")
+    if y_scale_mode == "fill":
+        scale_factor_expr = f"max({safe_video_y_scale:g}\\,{output_height}/ih)"
+    else:
+        scale_factor_expr = f"{safe_video_y_scale:g}"
+    filters.append(f"scale=iw:trunc(ih*{scale_factor_expr}/2)*2")
     filters.append(
         f"crop=iw:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2"
     )
@@ -359,12 +428,13 @@ def render_parts(
     input_video: Path,
     out_dir: Path,
     segments: list[Segment],
-    crop_top_px: int = 120,
+    crop_top_px: int = 0,
     output_width: int = 1080,
     output_height: int = 1920,
     video_y_scale: float = 2.08,
+    y_scale_mode: str = "fill",
     render_preset: str = "legacy",
-    title_mask_px: int = 180,
+    title_mask_px: int = 0,
     raise_px: int | None = None,
     bottom_padding: int | None = None,
     part_overlay_enabled: bool = True,
@@ -378,6 +448,9 @@ def render_parts(
 ) -> list[RenderedPart]:
     out_dir.mkdir(parents=True, exist_ok=True)
     log_fn = log or print
+
+    if y_scale_mode not in {"manual", "fill"}:
+        raise ValueError("y_scale_mode must be one of: manual, fill")
 
     rendered_parts: list[RenderedPart] = []
     segment_rows = [
@@ -393,6 +466,28 @@ def render_parts(
     ]
     part_commands: list[dict[str, Any]] = []
 
+    y_scale_debug: dict[str, float | str] | None = None
+    source_dims = _probe_video_dimensions(input_video=input_video, ffprobe_bin=ffprobe_bin)
+    if source_dims is not None:
+        y_scale_debug = _compute_y_scale_debug(
+            source_width=source_dims[0],
+            source_height=source_dims[1],
+            output_width=output_width,
+            output_height=output_height,
+            video_y_scale=video_y_scale,
+            y_scale_mode=y_scale_mode,
+        )
+        log_fn(
+            "y_scale_debug: "
+            f"ih_after_fit={y_scale_debug['ih_after_fit']:.3f}, "
+            f"required_fill_scale={y_scale_debug['computed_required_fill_scale']:.6f}, "
+            f"video_y_scale_requested={y_scale_debug['video_y_scale_requested']:.6f}, "
+            f"effective_y_scale_used={y_scale_debug['effective_y_scale_used']:.6f}, "
+            f"mode={y_scale_debug['y_scale_mode']}"
+        )
+    else:
+        log_fn("y_scale_debug: source dimensions unavailable from ffprobe; skipping computed fill metrics.")
+
     for idx, segment in enumerate(segments, start=1):
         if segment.duration <= 0:
             raise ValueError(f"Segment {idx} duration must be > 0.")
@@ -404,6 +499,7 @@ def render_parts(
             output_width=output_width,
             output_height=output_height,
             video_y_scale=video_y_scale,
+            y_scale_mode=y_scale_mode,
             render_preset=render_preset,
             title_mask_px=title_mask_px,
             part_overlay_enabled=part_overlay_enabled,
@@ -507,6 +603,22 @@ def render_parts(
             "output_width": output_width,
             "output_height": output_height,
             "video_y_scale": video_y_scale,
+            "y_scale_mode": y_scale_mode,
+            "computed_required_fill_scale": (
+                y_scale_debug.get("computed_required_fill_scale")
+                if y_scale_debug is not None
+                else None
+            ),
+            "effective_y_scale_used": (
+                y_scale_debug.get("effective_y_scale_used")
+                if y_scale_debug is not None
+                else None
+            ),
+            "ih_after_fit": (
+                y_scale_debug.get("ih_after_fit")
+                if y_scale_debug is not None
+                else None
+            ),
             "raise_px": raise_px,
             "bottom_padding": bottom_padding,
             "locked_preset": LOCKED_PRESET,
@@ -520,6 +632,7 @@ def render_parts(
         "parts": part_commands,
         "ffmpeg_version": _safe_ffmpeg_version(ffmpeg_bin),
         "ffprobe_input": _safe_probe_json(input_video, ffprobe_bin),
+        "y_scale_debug": y_scale_debug,
         "known_good_comparison": known_good_report,
     }
     (out_dir / "render_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")

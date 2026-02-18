@@ -285,8 +285,16 @@
       </div>
 
       <div class="field">
+        <label for="yScaleModeInput">Y Scale Mode</label>
+        <select id="yScaleModeInput">
+          <option value="fill" selected>fill</option>
+          <option value="manual">manual</option>
+        </select>
+      </div>
+
+      <div class="field">
         <label for="titleMaskInput">Title Mask PX</label>
-        <input id="titleMaskInput" type="number" value="180" />
+        <input id="titleMaskInput" type="number" value="0" />
       </div>
 
       <div class="field">
@@ -336,6 +344,7 @@
       interval: document.getElementById("intervalInput"),
       partSec: document.getElementById("partSecInput"),
       yScale: document.getElementById("yScaleInput"),
+      yScaleMode: document.getElementById("yScaleModeInput"),
       titleMask: document.getElementById("titleMaskInput"),
       labelPos: document.getElementById("labelPosInput"),
       noOverlay: document.getElementById("noOverlayInput"),
@@ -390,7 +399,7 @@
     }
 
     function setFormDisabled(disabled) {
-      [el.url, el.title, el.channel, el.crop, el.interval, el.partSec, el.yScale, el.titleMask, el.labelPos, el.noOverlay].forEach((item) => {
+      [el.url, el.title, el.channel, el.crop, el.interval, el.partSec, el.yScale, el.yScaleMode, el.titleMask, el.labelPos, el.noOverlay].forEach((item) => {
         item.disabled = disabled;
       });
       el.processBtn.disabled = disabled || state.processing || state.uploading;
@@ -496,8 +505,9 @@
           title: el.title.value.trim(),
           channel: el.channel.value.trim(),
           crop_top_px: Number(el.crop.value || 0),
-          title_mask_px: Number(el.titleMask.value || 180),
+          title_mask_px: Number(el.titleMask.value || 0),
           video_y_scale: Number(el.yScale.value || 2.08),
+          y_scale_mode: el.yScaleMode.value || "fill",
           render_preset: "legacy",
           interval_min: Number(el.interval.value || 30),
           part_seconds: Number(el.partSec.value || 70),
