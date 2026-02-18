@@ -1,602 +1,476 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TikTok Scheduler Uploader</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quick Clips Web UI</title>
   <style>
     :root {
-      --bg: #070b15;
-      --panel: #11192e;
-      --panel-2: #0f1530;
-      --line: #2b3b6b;
-      --text: #f2f6ff;
-      --muted: #b6c2e2;
-      --accent: #59c7ff;
-      --accent-2: #71ffb4;
-      --danger: #ff6d9b;
-      --ok: #45f0a1;
-      --glow: 0 0 30px rgba(89, 199, 255, 0.35);
+      --bg: #0b1020;
+      --panel: #111a33;
+      --border: #2a3a6a;
+      --text: #ecf2ff;
+      --muted: #b8c5ea;
+      --ok: #26d07c;
+      --warn: #f7b955;
+      --bad: #f26c7a;
+      --accent: #5bc7ff;
     }
-
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
-      font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+      font-family: Segoe UI, Tahoma, sans-serif;
       color: var(--text);
-      background:
-        radial-gradient(circle at 10% 10%, rgba(113, 255, 180, 0.12), transparent 34%),
-        radial-gradient(circle at 90% 15%, rgba(89, 199, 255, 0.18), transparent 33%),
-        linear-gradient(140deg, #050914 0%, #0a0f22 50%, #0d1430 100%);
+      background: radial-gradient(circle at 20% 15%, #1a2d58 0%, transparent 35%), var(--bg);
       min-height: 100vh;
-      padding: 28px;
-    }
-
-    .title-wrap {
-      margin-bottom: 20px;
-    }
-
-    .app-title {
-      margin: 0;
-      font-size: clamp(24px, 4vw, 42px);
-      letter-spacing: 0.4px;
-      text-shadow: 0 0 24px rgba(89, 199, 255, 0.35);
-    }
-
-    .subtitle {
-      margin-top: 8px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .grid {
-      display: grid;
-      gap: 18px;
-      grid-template-columns: minmax(320px, 540px) minmax(420px, 1fr);
-    }
-
-    .card {
-      position: relative;
-      background: linear-gradient(165deg, rgba(17, 25, 46, 0.96), rgba(10, 14, 31, 0.95));
-      border: 1px solid rgba(70, 95, 156, 0.5);
-      border-radius: 18px;
       padding: 20px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.32), inset 0 0 0 1px rgba(157, 183, 255, 0.04);
-      overflow: hidden;
     }
-
-    .card::after {
-      content: "";
-      position: absolute;
-      inset: -80px auto auto -80px;
-      width: 170px;
-      height: 170px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(89, 199, 255, 0.2), transparent 75%);
-      pointer-events: none;
-    }
-
-    h2 {
-      margin: 0 0 14px;
-      font-size: 20px;
-      letter-spacing: 0.35px;
-    }
-
-    .field {
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
       display: grid;
-      gap: 7px;
-      margin-bottom: 12px;
+      grid-template-columns: 470px 1fr;
+      gap: 16px;
     }
-
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    h1, h2 {
+      margin: 0 0 10px;
+      line-height: 1.2;
+    }
+    h1 { font-size: 22px; }
+    h2 { font-size: 16px; color: var(--muted); }
     .row {
       display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
     }
-
-    label {
-      font-size: 13px;
-      color: #ced8f7;
-      letter-spacing: 0.22px;
+    .field {
+      margin-bottom: 8px;
     }
-
-    input, select {
-      width: 100%;
-      background: rgba(7, 11, 27, 0.95);
-      color: #f4f7ff;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 12px 13px;
-      outline: none;
-      transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
-    }
-
-    input:focus, select:focus {
-      border-color: rgba(89, 199, 255, 0.95);
-      box-shadow: 0 0 0 3px rgba(89, 199, 255, 0.22);
-      transform: translateY(-1px);
-    }
-
-    .actions {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      margin-top: 14px;
-    }
-
-    button {
-      position: relative;
-      border: 0;
-      border-radius: 12px;
-      color: #05111f;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-      padding: 12px 12px;
-      cursor: pointer;
-      transition: transform .16s ease, box-shadow .2s ease, filter .2s ease, opacity .2s ease;
-    }
-
-    .btn-primary {
-      background: linear-gradient(120deg, #61ccff, #83ffca);
-      box-shadow: var(--glow);
-      text-shadow: 0 0 10px rgba(255, 255, 255, 0.34);
-    }
-
-    .btn-secondary {
-      background: linear-gradient(120deg, #abbeff, #7ca6ff);
-      box-shadow: 0 0 24px rgba(142, 166, 255, 0.35);
-    }
-
-    button:hover:not(:disabled) {
-      transform: translateY(-2px) scale(1.015);
-      filter: saturate(1.08);
-    }
-
-    button:active:not(:disabled) {
-      transform: translateY(1px) scale(0.995);
-    }
-
-    button:disabled {
-      cursor: not-allowed;
-      opacity: .5;
-      box-shadow: none;
-      filter: grayscale(.2);
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      border: 2px solid rgba(5, 17, 31, .35);
-      border-top-color: rgba(5, 17, 31, .95);
-      margin-right: 6px;
-      vertical-align: -2px;
-      animation: spin .7s linear infinite;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .status-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 7px 11px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-      border: 1px solid rgba(120, 151, 235, .45);
-      background: rgba(89, 199, 255, .12);
-      color: #dbf4ff;
-      margin-bottom: 10px;
-    }
-
-    .status-ok { background: rgba(69, 240, 161, .15); border-color: rgba(69, 240, 161, .45); color: #ddffe7; }
-    .status-bad { background: rgba(255, 109, 155, .18); border-color: rgba(255, 109, 155, .45); color: #ffe2ec; }
-
-    .log-panel {
-      min-height: 360px;
-      max-height: 470px;
-      overflow: auto;
-      border-radius: 14px;
-      padding: 12px;
-      border: 1px solid rgba(64, 90, 156, .55);
-      background: linear-gradient(180deg, rgba(6, 10, 24, .98), rgba(7, 12, 28, .92));
-      font-family: "Cascadia Mono", "Consolas", monospace;
-      font-size: 12px;
-      line-height: 1.56;
-      white-space: pre-wrap;
-      color: #d4e1ff;
-    }
-
-    .parts {
-      margin-top: 10px;
-      border-top: 1px solid rgba(87, 114, 182, .45);
-      padding-top: 10px;
-      max-height: 180px;
-      overflow: auto;
-      font-size: 13px;
-      color: #e5ecff;
-    }
-
-    .parts code {
+    .field label {
       display: block;
-      padding: 4px 0;
-      color: #b8ffdd;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
     }
-
-    .connected {
-      margin-top: 12px;
-      font-size: 13px;
-      color: #d7e4ff;
+    .field input, .field select {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0d1630;
+      color: var(--text);
     }
-
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    button {
+      border: 1px solid #2d4a84;
+      border-radius: 8px;
+      background: #12306a;
+      color: #eef4ff;
+      padding: 9px 12px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .status {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #1e315f;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .status.ok { background: rgba(38, 208, 124, 0.2); color: #91f0be; }
+    .status.warn { background: rgba(247, 185, 85, 0.2); color: #ffd792; }
+    .status.bad { background: rgba(242, 108, 122, 0.2); color: #ffb0b9; }
+    .log, .parts, .ffmpeg {
+      background: #090f22;
+      border: 1px solid #23345f;
+      border-radius: 10px;
+      padding: 10px;
+      font-family: Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow: auto;
+    }
+    .log { min-height: 280px; max-height: 460px; }
+    .parts, .ffmpeg { min-height: 80px; max-height: 220px; margin-top: 8px; }
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
     @media (max-width: 1100px) {
-      .grid { grid-template-columns: 1fr; }
-      .actions { grid-template-columns: 1fr; }
+      .wrap { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <div class="title-wrap">
-    <h1 class="app-title">TikTok Scheduler Uploader</h1>
-    <div class="subtitle">Process anime recap clips, connect TikTok OAuth, and upload draft parts.</div>
-  </div>
-
-  <div class="grid">
+  <div class="wrap">
     <section class="card">
-      <h2>Pipeline Inputs</h2>
+      <h1>Quick Clips Processor</h1>
+      <h2>API-connected UI</h2>
+
       <div class="field">
-        <label for="urlInput">Source URL</label>
-        <input id="urlInput" placeholder="https://www.youtube.com/watch?v=..." />
+        <label for="url">URL or local path</label>
+        <input id="url" placeholder="https://... or C:\path\video.mp4">
       </div>
       <div class="field">
-        <label for="titleInput">Caption Title</label>
-        <input id="titleInput" placeholder="Solo Leveling Recap" />
+        <label for="title">Title</label>
+        <input id="title" placeholder="Solo Leveling Recap">
       </div>
       <div class="field">
-        <label for="channelInput">Channel</label>
-        <select id="channelInput">
-          <option value="anime recaps">anime recaps</option>
-        </select>
+        <label for="channel">Channel</label>
+        <select id="channel"></select>
       </div>
 
       <div class="row">
         <div class="field">
-          <label for="cropInput">Crop Top PX</label>
-          <input id="cropInput" type="number" value="0" />
+          <label for="partSeconds">Part seconds</label>
+          <input id="partSeconds" type="number" value="70" min="1">
         </div>
         <div class="field">
-          <label for="intervalInput">Interval Minutes</label>
-          <input id="intervalInput" type="number" value="30" />
+          <label for="intervalMin">Interval minutes</label>
+          <input id="intervalMin" type="number" value="30" min="1">
         </div>
       </div>
 
       <div class="row">
         <div class="field">
-          <label for="partSecInput">Part Seconds</label>
-          <input id="partSecInput" type="number" value="70" />
+          <label for="cropTopPx">Crop top px</label>
+          <input id="cropTopPx" type="number" value="0" min="0">
         </div>
         <div class="field">
-          <label for="yScaleInput">Y Scale (manual/fill only)</label>
-          <input id="yScaleInput" type="number" step="0.01" value="2.08" />
+          <label for="titleMaskPx">Title mask px</label>
+          <input id="titleMaskPx" type="number" value="0" min="0">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="edgeBarPx">Edge Bar PX (overlay only)</label>
+          <input id="edgeBarPx" type="number" value="45" min="0" max="200">
+        </div>
+        <div class="field">
+          <label for="contentHeightBumpPx">Content Height Bump PX (zoom mode)</label>
+          <input id="contentHeightBumpPx" type="number" value="0" min="0" max="1600">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="yScaleMode">Y scale mode</label>
+          <select id="yScaleMode">
+            <option value="letterbox" selected>letterbox</option>
+            <option value="zoom">zoom</option>
+            <option value="manual">manual</option>
+            <option value="fill">fill</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="videoYScale">Video Y scale (manual/fill)</label>
+          <input id="videoYScale" type="number" step="0.01" value="2.08" min="0.01">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="outputWidth">Output width</label>
+          <input id="outputWidth" type="number" value="1080" min="2">
+        </div>
+        <div class="field">
+          <label for="outputHeight">Output height</label>
+          <input id="outputHeight" type="number" value="1920" min="2">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="partLabelPosition">Part label position</label>
+          <select id="partLabelPosition">
+            <option value="top-center" selected>top-center</option>
+            <option value="top-left">top-left</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="renderPreset">Render preset</label>
+          <input id="renderPreset" value="legacy">
         </div>
       </div>
 
       <div class="field">
-        <label for="yScaleModeInput">Render Mode</label>
-        <select id="yScaleModeInput">
-          <option value="letterbox" selected>letterbox (no zoom)</option>
-          <option value="zoom">zoom (vertical only)</option>
-          <option value="fill">fill (auto)</option>
-          <option value="manual">manual</option>
-        </select>
+        <label><input id="noPartOverlay" type="checkbox"> Disable Part overlay</label>
       </div>
 
-      <div class="field">
-        <label for="titleMaskInput">Title Mask PX</label>
-        <input id="titleMaskInput" type="number" value="0" />
+      <div class="btn-row">
+        <button id="processBtn">Process</button>
+        <button id="stopBtn" disabled>Stop Poll</button>
       </div>
-
-      <div class="field">
-        <label for="edgeBarInput">Edge Bar PX (overlay only)</label>
-        <input id="edgeBarInput" type="number" value="45" min="0" max="200" />
-      </div>
-
-      <div class="field">
-        <label for="contentHeightBumpInput">Content Height Bump PX (zoom mode only)</label>
-        <input id="contentHeightBumpInput" type="number" value="0" min="0" max="1600" />
-      </div>
-
-      <div class="field">
-        <label for="labelPosInput">Part Label Position</label>
-        <select id="labelPosInput">
-          <option value="top-center">top-center</option>
-          <option value="top-left">top-left</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label><input id="noOverlayInput" type="checkbox" /> Disable Part X overlay</label>
-      </div>
-
-      <div class="actions">
-        <button id="processBtn" class="btn-primary">Process Video</button>
-        <button id="connectBtn" class="btn-secondary">Connect TikTok</button>
-        <button id="uploadBtn" class="btn-primary" disabled>Upload Drafts</button>
-      </div>
-
-      <div class="connected" id="connectState">TikTok status: checking...</div>
+      <div class="small">Uses relative API URLs only. No hardcoded host/port.</div>
     </section>
 
     <section class="card">
-      <h2>Live Status</h2>
-      <div id="statusChip" class="status-chip">Idle</div>
-      <div id="logPanel" class="log-panel">Waiting for actions...</div>
-      <div id="partsPanel" class="parts"></div>
+      <div id="status" class="status">Idle</div>
+      <div id="meta" class="small"></div>
+      <div class="log" id="log"></div>
+      <div class="parts" id="parts"></div>
+      <div class="ffmpeg" id="ffmpeg"></div>
     </section>
   </div>
 
   <script>
+    const ui = {
+      url: document.getElementById("url"),
+      title: document.getElementById("title"),
+      channel: document.getElementById("channel"),
+      partSeconds: document.getElementById("partSeconds"),
+      intervalMin: document.getElementById("intervalMin"),
+      cropTopPx: document.getElementById("cropTopPx"),
+      titleMaskPx: document.getElementById("titleMaskPx"),
+      edgeBarPx: document.getElementById("edgeBarPx"),
+      contentHeightBumpPx: document.getElementById("contentHeightBumpPx"),
+      yScaleMode: document.getElementById("yScaleMode"),
+      videoYScale: document.getElementById("videoYScale"),
+      outputWidth: document.getElementById("outputWidth"),
+      outputHeight: document.getElementById("outputHeight"),
+      partLabelPosition: document.getElementById("partLabelPosition"),
+      renderPreset: document.getElementById("renderPreset"),
+      noPartOverlay: document.getElementById("noPartOverlay"),
+      processBtn: document.getElementById("processBtn"),
+      stopBtn: document.getElementById("stopBtn"),
+      status: document.getElementById("status"),
+      meta: document.getElementById("meta"),
+      log: document.getElementById("log"),
+      parts: document.getElementById("parts"),
+      ffmpeg: document.getElementById("ffmpeg"),
+    };
+
     const state = {
       jobId: null,
-      processing: false,
-      uploading: false,
-      connected: false,
-      pollId: null,
-      lastLogs: [],
+      polling: false,
+      timer: null,
+      failures: 0,
+      consecutive404: 0,
+      maxFailures: 5,
+      max404Retries: 8,
+      lastLogSignature: "",
     };
 
-    const el = {
-      url: document.getElementById("urlInput"),
-      title: document.getElementById("titleInput"),
-      channel: document.getElementById("channelInput"),
-      crop: document.getElementById("cropInput"),
-      interval: document.getElementById("intervalInput"),
-      partSec: document.getElementById("partSecInput"),
-      yScale: document.getElementById("yScaleInput"),
-      yScaleMode: document.getElementById("yScaleModeInput"),
-      titleMask: document.getElementById("titleMaskInput"),
-      edgeBar: document.getElementById("edgeBarInput"),
-      contentHeightBump: document.getElementById("contentHeightBumpInput"),
-      labelPos: document.getElementById("labelPosInput"),
-      noOverlay: document.getElementById("noOverlayInput"),
-      processBtn: document.getElementById("processBtn"),
-      connectBtn: document.getElementById("connectBtn"),
-      uploadBtn: document.getElementById("uploadBtn"),
-      statusChip: document.getElementById("statusChip"),
-      logPanel: document.getElementById("logPanel"),
-      partsPanel: document.getElementById("partsPanel"),
-      connectState: document.getElementById("connectState"),
-    };
-
-    function setButtonLoading(button, loading, text) {
-      if (!button.dataset.baseText) button.dataset.baseText = button.textContent;
-      if (loading) {
-        button.innerHTML = `<span class="spinner"></span>${text}`;
-      } else {
-        button.textContent = button.dataset.baseText;
-      }
+    function now() {
+      return new Date().toLocaleTimeString();
     }
 
-    function appendLog(message) {
-      const now = new Date().toLocaleTimeString();
-      const line = `[${now}] ${message}`;
-      el.logPanel.textContent += (el.logPanel.textContent ? "\n" : "") + line;
-      el.logPanel.scrollTop = el.logPanel.scrollHeight;
+    function setStatus(text, kind = "neutral") {
+      ui.status.textContent = text;
+      ui.status.className = "status";
+      if (kind === "ok") ui.status.classList.add("ok");
+      if (kind === "warn") ui.status.classList.add("warn");
+      if (kind === "bad") ui.status.classList.add("bad");
     }
 
-    function replaceLogs(lines) {
-      if (!Array.isArray(lines) || lines.length === 0) return;
-      if (JSON.stringify(lines) === JSON.stringify(state.lastLogs)) return;
-      state.lastLogs = lines.slice();
-      el.logPanel.textContent = lines.join("\n");
-      el.logPanel.scrollTop = el.logPanel.scrollHeight;
+    function appendLog(line) {
+      const formatted = `[${now()}] ${line}`;
+      ui.log.textContent += (ui.log.textContent ? "\n" : "") + formatted;
+      ui.log.scrollTop = ui.log.scrollHeight;
     }
 
-    function setStatus(label, kind = "default") {
-      el.statusChip.textContent = label;
-      el.statusChip.classList.remove("status-ok", "status-bad");
-      if (kind === "ok") el.statusChip.classList.add("status-ok");
-      if (kind === "bad") el.statusChip.classList.add("status-bad");
+    function setLogsFromServer(lines) {
+      if (!Array.isArray(lines)) return;
+      const signature = JSON.stringify(lines);
+      if (signature === state.lastLogSignature) return;
+      state.lastLogSignature = signature;
+      ui.log.textContent = lines.join("\n");
+      ui.log.scrollTop = ui.log.scrollHeight;
+      const ffmpegLines = lines.filter((l) => l.includes("FFmpeg cmd"));
+      ui.ffmpeg.textContent = ffmpegLines.length ? ffmpegLines.join("\n") : "No FFmpeg cmd lines yet.";
     }
 
     function setParts(files) {
-      if (!files || files.length === 0) {
-        el.partsPanel.innerHTML = "No parts yet.";
+      if (!Array.isArray(files) || files.length === 0) {
+        ui.parts.textContent = "No part files yet.";
         return;
       }
-      el.partsPanel.innerHTML = files
-        .map((path) => `<code>${path}</code>`)
-        .join("");
+      ui.parts.textContent = files.join("\n");
     }
 
-    function setFormDisabled(disabled) {
-      [el.url, el.title, el.channel, el.crop, el.interval, el.partSec, el.yScale, el.yScaleMode, el.titleMask, el.edgeBar, el.contentHeightBump, el.labelPos, el.noOverlay].forEach((item) => {
-        item.disabled = disabled;
-      });
-      el.processBtn.disabled = disabled || state.processing || state.uploading;
-      el.uploadBtn.disabled = !state.jobId || !state.connected || state.processing || state.uploading;
-    }
-
-    async function fetchJSON(url, options = {}) {
-      const res = await fetch(url, options);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const detail = data.detail || JSON.stringify(data) || `HTTP ${res.status}`;
-        throw new Error(detail);
+    async function fetchJson(path, options = {}) {
+      const response = await fetch(path, options);
+      const text = await response.text();
+      let data = null;
+      if (text) {
+        try { data = JSON.parse(text); } catch (_) { data = null; }
       }
-      return data;
+      if (!response.ok) {
+        const detail = data && data.detail ? data.detail : text || `HTTP ${response.status}`;
+        throw new Error(`${response.status} ${response.statusText}: ${detail}`);
+      }
+      return data ?? {};
     }
 
-    async function refreshConnectionState() {
+    function stopPolling(reason = "") {
+      state.polling = false;
+      if (state.timer) {
+        clearTimeout(state.timer);
+        state.timer = null;
+      }
+      ui.stopBtn.disabled = true;
+      if (reason) appendLog(reason);
+    }
+
+    function nextDelay() {
+      return Math.min(1000 * Math.pow(2, Math.max(0, state.failures - 1)), 10000);
+    }
+
+    async function pollOnce() {
+      if (!state.polling || !state.jobId) return;
       try {
-        const me = await fetchJSON("/api/me");
-        state.connected = !!me.connected;
-        el.connectState.textContent = state.connected
-          ? "TikTok status: Connected ✅"
-          : "TikTok status: Not connected";
+        const payload = await fetchJson(`/api/status/${encodeURIComponent(state.jobId)}`);
+        state.failures = 0;
+        state.consecutive404 = 0;
+
+        setLogsFromServer(payload.logs || []);
+        const statusPayload = payload.status || {};
+        setParts(payload.part_files || statusPayload.part_files || []);
+        ui.meta.textContent = `job_id=${payload.job_id || state.jobId} state=${payload.state || "unknown"}`;
+
+        const currentState = payload.state || "unknown";
+        if (currentState === "processed" || currentState === "uploaded") {
+          setStatus(currentState, "ok");
+          stopPolling("Polling stopped: terminal success state reached.");
+          return;
+        }
+        if (currentState === "failed" || currentState === "upload_failed") {
+          const err = payload.error || (statusPayload && statusPayload.error) || "Unknown error";
+          setStatus(currentState, "bad");
+          stopPolling(`Polling stopped: terminal failure state (${err}).`);
+          return;
+        }
+        if (currentState === "queued" || currentState === "processing" || currentState === "uploading") {
+          setStatus(currentState, "warn");
+        } else {
+          setStatus(currentState);
+        }
       } catch (error) {
-        state.connected = false;
-        el.connectState.textContent = `TikTok status: Error (${error.message})`;
+        state.failures += 1;
+        const message = String(error && error.message ? error.message : error);
+        if (message.startsWith("404")) {
+          state.consecutive404 += 1;
+          appendLog(`Status not ready yet (${state.consecutive404}/${state.max404Retries}): ${message}`);
+          if (state.consecutive404 >= state.max404Retries) {
+            setStatus("poll stopped", "bad");
+            stopPolling(`Stopped polling after ${state.consecutive404} consecutive 404 responses.`);
+            return;
+          }
+        } else {
+          appendLog(`Status poll error (${state.failures}/${state.maxFailures}): ${message}`);
+          if (state.failures >= state.maxFailures) {
+            setStatus("poll stopped", "bad");
+            stopPolling(`Stopped polling after ${state.failures} consecutive poll failures.`);
+            return;
+          }
+        }
       }
-      setFormDisabled(state.processing || state.uploading);
+      state.timer = setTimeout(pollOnce, nextDelay());
+    }
+
+    function startPolling(jobId) {
+      stopPolling();
+      state.jobId = jobId;
+      state.polling = true;
+      state.failures = 0;
+      state.consecutive404 = 0;
+      ui.stopBtn.disabled = false;
+      state.timer = setTimeout(pollOnce, 800);
+    }
+
+    function requestPayload() {
+      return {
+        url: ui.url.value.trim(),
+        title: ui.title.value.trim(),
+        channel: ui.channel.value,
+        crop_top_px: Number(ui.cropTopPx.value || 0),
+        title_mask_px: Number(ui.titleMaskPx.value || 0),
+        edge_bar_px: Number(ui.edgeBarPx.value || 45),
+        content_height_bump_px: Number(ui.contentHeightBumpPx.value || 0),
+        video_y_scale: Number(ui.videoYScale.value || 2.08),
+        y_scale_mode: ui.yScaleMode.value || "letterbox",
+        interval_min: Number(ui.intervalMin.value || 30),
+        part_seconds: Number(ui.partSeconds.value || 70),
+        output_width: Number(ui.outputWidth.value || 1080),
+        output_height: Number(ui.outputHeight.value || 1920),
+        render_preset: ui.renderPreset.value || "legacy",
+        part_label_position: ui.partLabelPosition.value || "top-center",
+        no_part_overlay: !!ui.noPartOverlay.checked,
+      };
     }
 
     async function loadChannels() {
       try {
-        const payload = await fetchJSON("/api/channels");
+        const payload = await fetchJson("/api/channels");
         const channels = Array.isArray(payload.channels) ? payload.channels : [];
-        if (!channels.length) return;
-        el.channel.innerHTML = channels
+        if (!channels.length) {
+          ui.channel.innerHTML = "<option value='anime recaps'>anime recaps</option>";
+          return;
+        }
+        ui.channel.innerHTML = channels
           .map((name) => `<option value="${name.replace(/"/g, "&quot;")}">${name}</option>`)
           .join("");
-        if (channels.includes("anime recaps")) {
-          el.channel.value = "anime recaps";
-        }
       } catch (error) {
-        appendLog(`Could not load channel list: ${error.message}`);
+        appendLog(`Failed to load channels: ${error.message || error}`);
       }
     }
 
-    async function pollStatus() {
-      if (!state.jobId) return;
-      try {
-        const status = await fetchJSON(`/api/status/${encodeURIComponent(state.jobId)}`);
-        replaceLogs(status.logs || []);
-        setParts(status.part_files || (status.status && status.status.part_files) || []);
-        if (status.state === "processed") {
-          setStatus("Processed ✅", "ok");
-          state.processing = false;
-        } else if (status.state === "uploaded") {
-          setStatus("Uploaded ✅", "ok");
-          state.uploading = false;
-        } else if (status.state === "failed" || status.state === "upload_failed") {
-          setStatus("Failed ❌", "bad");
-          state.processing = false;
-          state.uploading = false;
-          if (status.error) appendLog(`Error: ${status.error}`);
-        } else {
-          setStatus(status.state || "running");
-        }
-
-        if (!state.processing && !state.uploading && state.pollId) {
-          clearInterval(state.pollId);
-          state.pollId = null;
-        }
-      } catch (error) {
-        appendLog(`Status poll error: ${error.message}`);
-      } finally {
-        setButtonLoading(el.processBtn, state.processing, "Processing...");
-        setButtonLoading(el.uploadBtn, state.uploading, "Uploading...");
-        setFormDisabled(state.processing || state.uploading);
-      }
-    }
-
-    function ensurePolling() {
-      if (state.pollId) return;
-      state.pollId = setInterval(pollStatus, 1000);
-    }
-
-    el.processBtn.addEventListener("click", async () => {
-      if (!el.url.value.trim() || !el.title.value.trim() || !el.channel.value.trim()) {
-        appendLog("URL, title, and channel are required.");
+    async function startProcess() {
+      const payload = requestPayload();
+      if (!payload.url || !payload.title || !payload.channel) {
+        setStatus("missing required fields", "bad");
+        appendLog("URL, Title, and Channel are required.");
         return;
       }
-
-      state.processing = true;
-      state.uploading = false;
-      state.lastLogs = [];
-      el.logPanel.textContent = "";
-      setButtonLoading(el.processBtn, true, "Processing...");
-      setStatus("Processing...");
-      setFormDisabled(true);
-
+      ui.processBtn.disabled = true;
+      setStatus("submitting", "warn");
+      appendLog("Submitting /api/process...");
       try {
-        const payload = {
-          url: el.url.value.trim(),
-          title: el.title.value.trim(),
-          channel: el.channel.value.trim(),
-          crop_top_px: Number(el.crop.value || 0),
-          title_mask_px: Number(el.titleMask.value || 0),
-          edge_bar_px: Number(el.edgeBar.value || 45),
-          content_height_bump_px: Number(el.contentHeightBump.value || 0),
-          video_y_scale: Number(el.yScale.value || 2.08),
-          y_scale_mode: el.yScaleMode.value || "letterbox",
-          render_preset: "legacy",
-          interval_min: Number(el.interval.value || 30),
-          part_seconds: Number(el.partSec.value || 70),
-          part_label_position: el.labelPos.value,
-          no_part_overlay: !!el.noOverlay.checked,
-        };
-        const data = await fetchJSON("/api/process", {
+        const data = await fetchJson("/api/process", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        state.jobId = data.job_id;
-        appendLog(`Job started: ${state.jobId}`);
-        ensurePolling();
+        const jobId = data.job_id;
+        if (!jobId) {
+          throw new Error("No job_id returned from /api/process.");
+        }
+        appendLog(`Job created: ${jobId}`);
+        setStatus("queued", "warn");
+        startPolling(jobId);
       } catch (error) {
-        appendLog(`Process request failed: ${error.message}`);
-        setStatus("Failed ❌", "bad");
-        state.processing = false;
+        setStatus("request failed", "bad");
+        appendLog(`Process request failed: ${error.message || error}`);
       } finally {
-        setButtonLoading(el.processBtn, state.processing, "Processing...");
-        setFormDisabled(state.processing || state.uploading);
+        ui.processBtn.disabled = false;
       }
-    });
+    }
 
-    el.connectBtn.addEventListener("click", () => {
-      appendLog("Opening TikTok OAuth...");
-      window.open("/auth/start", "_blank");
-      setTimeout(refreshConnectionState, 1800);
-      setTimeout(refreshConnectionState, 5000);
-    });
+    ui.processBtn.addEventListener("click", startProcess);
+    ui.stopBtn.addEventListener("click", () => stopPolling("Polling stopped manually."));
 
-    el.uploadBtn.addEventListener("click", async () => {
-      if (!state.jobId) {
-        appendLog("No processed job found. Run Process Video first.");
-        return;
-      }
-      if (!state.connected) {
-        appendLog("Connect TikTok before uploading.");
-        return;
-      }
-
-      state.uploading = true;
-      setButtonLoading(el.uploadBtn, true, "Uploading...");
-      setStatus("Uploading drafts...");
-      setFormDisabled(true);
-
-      try {
-        const payload = {
-          job_id: state.jobId,
-          title: el.title.value.trim(),
-          channel: el.channel.value.trim(),
-          interval_min: Number(el.interval.value || 30),
-        };
-        await fetchJSON("/api/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        appendLog("Upload queue started.");
-        ensurePolling();
-      } catch (error) {
-        appendLog(`Upload request failed: ${error.message}`);
-        setStatus("Upload failed ❌", "bad");
-        state.uploading = false;
-      } finally {
-        setButtonLoading(el.uploadBtn, state.uploading, "Uploading...");
-        setFormDisabled(state.processing || state.uploading);
-      }
-    });
-
+    ui.log.textContent = "Ready.";
+    ui.parts.textContent = "No part files yet.";
+    ui.ffmpeg.textContent = "No FFmpeg cmd lines yet.";
     loadChannels();
-    refreshConnectionState();
-    setParts([]);
   </script>
 </body>
 </html>
