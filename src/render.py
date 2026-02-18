@@ -203,9 +203,13 @@ def _compute_y_scale_debug(
         "source_height": float(source_height),
         "fit_width": float(fit_width),
         "fit_height": float(fit_height),
+        "base_width": float(fit_width),
+        "base_height": float(fit_height),
         "ih_after_fit": float(fit_height),
+        "required_fill_scale": float(required_fill_scale),
         "computed_required_fill_scale": float(required_fill_scale),
         "video_y_scale_requested": float(video_y_scale),
+        "effective_y_scale": float(effective_y_scale),
         "effective_y_scale_used": float(effective_y_scale),
         "y_scale_mode": y_scale_mode,
     }
@@ -358,6 +362,7 @@ def build_video_filter(
     output_height: int,
     video_y_scale: float = 2.08,
     y_scale_mode: str = "fill",
+    effective_y_scale: float | None = None,
     render_preset: str = "legacy",
     title_mask_px: int = 0,
     part_overlay_enabled: bool = True,
@@ -383,7 +388,9 @@ def build_video_filter(
     # Legacy preset filter chain (kept stable):
     # fit inside frame -> vertical-only scale -> center-crop height -> pad to frame -> drawtext
     filters.append(f"scale={output_width}:{output_height}:force_original_aspect_ratio=decrease")
-    if y_scale_mode == "fill":
+    if effective_y_scale is not None:
+        scale_factor_expr = f"{float(effective_y_scale):g}"
+    elif y_scale_mode == "fill":
         scale_factor_expr = f"max({safe_video_y_scale:g}\\,{output_height}/ih)"
     else:
         scale_factor_expr = f"{safe_video_y_scale:g}"
@@ -467,6 +474,7 @@ def render_parts(
     part_commands: list[dict[str, Any]] = []
 
     y_scale_debug: dict[str, float | str] | None = None
+    effective_y_scale_for_filter: float | None = None
     source_dims = _probe_video_dimensions(input_video=input_video, ffprobe_bin=ffprobe_bin)
     if source_dims is not None:
         y_scale_debug = _compute_y_scale_debug(
@@ -477,13 +485,14 @@ def render_parts(
             video_y_scale=video_y_scale,
             y_scale_mode=y_scale_mode,
         )
+        effective_y_scale_for_filter = float(y_scale_debug["effective_y_scale"])
         log_fn(
             "y_scale_debug: "
-            f"ih_after_fit={y_scale_debug['ih_after_fit']:.3f}, "
-            f"required_fill_scale={y_scale_debug['computed_required_fill_scale']:.6f}, "
+            f"base_height={y_scale_debug['base_height']:.3f}, "
+            f"required_fill_scale={y_scale_debug['required_fill_scale']:.6f}, "
             f"video_y_scale_requested={y_scale_debug['video_y_scale_requested']:.6f}, "
-            f"effective_y_scale_used={y_scale_debug['effective_y_scale_used']:.6f}, "
-            f"mode={y_scale_debug['y_scale_mode']}"
+            f"effective_y_scale={y_scale_debug['effective_y_scale']:.6f}, "
+            f"y_scale_mode={y_scale_debug['y_scale_mode']}"
         )
     else:
         log_fn("y_scale_debug: source dimensions unavailable from ffprobe; skipping computed fill metrics.")
@@ -500,6 +509,7 @@ def render_parts(
             output_height=output_height,
             video_y_scale=video_y_scale,
             y_scale_mode=y_scale_mode,
+            effective_y_scale=effective_y_scale_for_filter,
             render_preset=render_preset,
             title_mask_px=title_mask_px,
             part_overlay_enabled=part_overlay_enabled,
@@ -604,6 +614,21 @@ def render_parts(
             "output_height": output_height,
             "video_y_scale": video_y_scale,
             "y_scale_mode": y_scale_mode,
+            "base_height": (
+                y_scale_debug.get("base_height")
+                if y_scale_debug is not None
+                else None
+            ),
+            "required_fill_scale": (
+                y_scale_debug.get("required_fill_scale")
+                if y_scale_debug is not None
+                else None
+            ),
+            "effective_y_scale": (
+                y_scale_debug.get("effective_y_scale")
+                if y_scale_debug is not None
+                else None
+            ),
             "computed_required_fill_scale": (
                 y_scale_debug.get("computed_required_fill_scale")
                 if y_scale_debug is not None
