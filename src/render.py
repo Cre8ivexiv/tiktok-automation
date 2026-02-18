@@ -189,11 +189,11 @@ def _compute_y_scale_debug(
     video_y_scale: float,
     y_scale_mode: str,
 ) -> dict[str, float | str]:
-    # Match filter step: scale=-2:output_height (height-fit with even width).
-    fit_scale = output_height / source_height
-    raw_fit_width = source_width * fit_scale
-    fit_width = max(2.0, float(int(math.floor(raw_fit_width / 2.0) * 2)))
-    fit_height = float(output_height)
+    # Match filter step: scale=output_width:-2 (width-fit with even height).
+    fit_scale = output_width / source_width
+    fit_width = float(output_width)
+    raw_fit_height = source_height * fit_scale
+    fit_height = max(2.0, float(int(math.floor(raw_fit_height / 2.0) * 2)))
     required_fill_scale = output_height / fit_height if fit_height > 0 else 1.0
     if y_scale_mode == "fill":
         effective_y_scale = max(video_y_scale, required_fill_scale)
@@ -385,11 +385,12 @@ def build_video_filter(
     if y_scale_mode not in {"manual", "fill"}:
         raise ValueError("y_scale_mode must be one of: manual, fill")
 
+    edge_bar_px = 40
     filters: list[str] = []
 
     # Legacy preset filter chain:
-    # height fit -> vertical-only scale -> center-crop to canvas -> optional pad fallback -> drawtext
-    filters.append(f"scale=-2:{output_height}")
+    # width fit -> vertical-only scale -> vertical crop -> pad -> top/bottom edge bars -> drawtext -> setsar
+    filters.append(f"scale={output_width}:-2")
     if effective_y_scale is not None:
         scale_factor_expr = f"{float(effective_y_scale):g}"
     elif y_scale_mode == "fill":
@@ -397,15 +398,12 @@ def build_video_filter(
     else:
         scale_factor_expr = f"{safe_video_y_scale:g}"
     filters.append(f"scale=iw:trunc(ih*{scale_factor_expr}/2)*2")
-    if y_scale_mode == "fill":
-        filters.append(
-            f"crop={output_width}:{output_height}:(iw-{output_width})/2:(ih-{output_height})/2"
-        )
-    else:
-        filters.append(
-            f"crop={output_width}:min(ih\\,{output_height}):(iw-{output_width})/2:(ih-min(ih\\,{output_height}))/2"
-        )
-        filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2")
+    filters.append(
+        f"crop={output_width}:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2"
+    )
+    filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2")
+    filters.append(f"drawbox=x=0:y=0:w=iw:h={edge_bar_px}:color=black@1.0:t=fill")
+    filters.append(f"drawbox=x=0:y=ih-{edge_bar_px}:w=iw:h={edge_bar_px}:color=black@1.0:t=fill")
     if title_mask_px > 0:
         filters.append(f"drawbox=x=0:y=0:w=iw:h={int(title_mask_px)}:color=black@1.0:t=fill")
 
