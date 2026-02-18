@@ -440,8 +440,11 @@ def build_video_filter(
         f"crop={output_width}:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2"
     )
     filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2")
-    filters.append("drawbox=x=0:y=0:w=iw:h=45:color=black@1.0:t=fill")
-    filters.append("drawbox=x=0:y=ih-45:w=iw:h=45:color=black@1.0:t=fill")
+    if safe_edge_bar_px > 0:
+        filters.append(f"drawbox=x=0:y=0:w=iw:h={safe_edge_bar_px}:color=black@1.0:t=fill")
+        filters.append(
+            f"drawbox=x=0:y=ih-{safe_edge_bar_px}:w=iw:h={safe_edge_bar_px}:color=black@1.0:t=fill"
+        )
     if title_mask_px > 0:
         filters.append(f"drawbox=x=0:y=0:w=iw:h={int(title_mask_px)}:color=black@1.0:t=fill")
 
