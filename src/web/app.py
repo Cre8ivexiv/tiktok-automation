@@ -32,7 +32,7 @@ class ProcessRequest(BaseModel):
     crop_top_px: int = 0
     title_mask_px: int = 0
     video_y_scale: float = 2.08
-    y_scale_mode: str = "fill"
+    y_scale_mode: str = "letterbox"
     interval_min: int = 30
     part_seconds: int = 70
     output_width: int = 1080

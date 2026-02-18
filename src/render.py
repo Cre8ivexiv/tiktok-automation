@@ -197,6 +197,8 @@ def _compute_y_scale_debug(
     required_fill_scale = output_height / fit_height if fit_height > 0 else 1.0
     if y_scale_mode == "fill":
         effective_y_scale = max(video_y_scale, required_fill_scale)
+    elif y_scale_mode == "letterbox":
+        effective_y_scale = 1.0
     else:
         effective_y_scale = video_y_scale
 
@@ -363,7 +365,7 @@ def build_video_filter(
     output_width: int,
     output_height: int,
     video_y_scale: float = 2.08,
-    y_scale_mode: str = "fill",
+    y_scale_mode: str = "letterbox",
     effective_y_scale: float | None = None,
     render_preset: str = "legacy",
     title_mask_px: int = 0,
@@ -382,11 +384,44 @@ def build_video_filter(
     safe_video_y_scale = float(video_y_scale)
     if safe_video_y_scale <= 0:
         raise ValueError("video_y_scale must be greater than 0.")
-    if y_scale_mode not in {"manual", "fill"}:
-        raise ValueError("y_scale_mode must be one of: manual, fill")
+    if y_scale_mode not in {"manual", "fill", "letterbox"}:
+        raise ValueError("y_scale_mode must be one of: manual, fill, letterbox")
 
-    edge_bar_px = 40
+    edge_bar_px = 45
     filters: list[str] = []
+
+    if y_scale_mode == "letterbox":
+        filters.append(f"scale={output_width}:-2")
+        filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2")
+        filters.append(f"drawbox=x=0:y=0:w=iw:h={edge_bar_px}:color=black@1.0:t=fill")
+        filters.append(f"drawbox=x=0:y=ih-{edge_bar_px}:w=iw:h={edge_bar_px}:color=black@1.0:t=fill")
+        if part_overlay_enabled:
+            label_text = _escape_drawtext_text(f"Part {part_number}")
+            if part_label_position == "top-left":
+                x_expr = "40"
+            else:
+                x_expr = "(w-text_w)/2"
+
+            font_arg = ""
+            if font_file:
+                font_arg = f"fontfile='{_escape_filter_path(font_file)}':"
+
+            filters.append(
+                "drawtext="
+                f"{font_arg}"
+                f"text='{label_text}':"
+                "fontsize=64:"
+                "fontcolor=white:"
+                "borderw=3:"
+                "bordercolor=black:"
+                "box=1:"
+                "boxcolor=black@0.45:"
+                "boxborderw=14:"
+                f"x={x_expr}:"
+                "y=40"
+            )
+        filters.append("setsar=1")
+        return ",".join(filters)
 
     # Legacy preset filter chain:
     # width fit -> vertical-only scale -> vertical crop -> pad -> top/bottom edge bars -> drawtext -> setsar
@@ -447,7 +482,7 @@ def render_parts(
     output_width: int = 1080,
     output_height: int = 1920,
     video_y_scale: float = 2.08,
-    y_scale_mode: str = "fill",
+    y_scale_mode: str = "letterbox",
     render_preset: str = "legacy",
     title_mask_px: int = 0,
     raise_px: int | None = None,
@@ -464,8 +499,8 @@ def render_parts(
     out_dir.mkdir(parents=True, exist_ok=True)
     log_fn = log or print
 
-    if y_scale_mode not in {"manual", "fill"}:
-        raise ValueError("y_scale_mode must be one of: manual, fill")
+    if y_scale_mode not in {"manual", "fill", "letterbox"}:
+        raise ValueError("y_scale_mode must be one of: manual, fill, letterbox")
 
     rendered_parts: list[RenderedPart] = []
     segment_rows = [

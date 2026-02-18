@@ -287,7 +287,8 @@
       <div class="field">
         <label for="yScaleModeInput">Fill Mode</label>
         <select id="yScaleModeInput">
-          <option value="fill" selected>fill (auto)</option>
+          <option value="letterbox" selected>letterbox (no zoom)</option>
+          <option value="fill">fill (auto)</option>
           <option value="manual">manual</option>
         </select>
       </div>
@@ -507,7 +508,7 @@
           crop_top_px: Number(el.crop.value || 0),
           title_mask_px: Number(el.titleMask.value || 0),
           video_y_scale: Number(el.yScale.value || 2.08),
-          y_scale_mode: el.yScaleMode.value || "fill",
+          y_scale_mode: el.yScaleMode.value || "letterbox",
           render_preset: "legacy",
           interval_min: Number(el.interval.value || 30),
           part_seconds: Number(el.partSec.value || 70),

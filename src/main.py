@@ -491,9 +491,9 @@ def build_parser() -> argparse.ArgumentParser:
     render_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
     render_parser.add_argument(
         "--y-scale-mode",
-        choices=["manual", "fill"],
-        default="fill",
-        help="manual=use video-y-scale directly, fill=auto-bump to fill frame height",
+        choices=["manual", "fill", "letterbox"],
+        default="letterbox",
+        help="manual=use video-y-scale directly, fill=auto-bump to fill frame height, letterbox=no zoom",
     )
     render_parser.add_argument("--render-preset", type=str, default="legacy", help="Rendering preset")
     render_parser.add_argument("--output-width", type=int, default=1080, help="Output width")
@@ -557,9 +557,9 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
     process_parser.add_argument(
         "--y-scale-mode",
-        choices=["manual", "fill"],
-        default="fill",
-        help="manual=use video-y-scale directly, fill=auto-bump to fill frame height",
+        choices=["manual", "fill", "letterbox"],
+        default="letterbox",
+        help="manual=use video-y-scale directly, fill=auto-bump to fill frame height, letterbox=no zoom",
     )
     process_parser.add_argument("--render-preset", type=str, default="legacy", help="Rendering preset")
     process_parser.add_argument("--output-width", type=int, default=1080, help="Output width")
@@ -639,9 +639,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_folder_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
     run_folder_parser.add_argument(
         "--y-scale-mode",
-        choices=["manual", "fill"],
-        default="fill",
-        help="manual=use video-y-scale directly, fill=auto-bump to fill frame height",
+        choices=["manual", "fill", "letterbox"],
+        default="letterbox",
+        help="manual=use video-y-scale directly, fill=auto-bump to fill frame height, letterbox=no zoom",
     )
     run_folder_parser.add_argument("--render-preset", type=str, default="legacy", help="Rendering preset")
     run_folder_parser.add_argument("--output-width", type=int, default=1080, help="Output width")

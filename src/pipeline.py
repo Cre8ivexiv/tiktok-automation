@@ -140,7 +140,7 @@ def process_video_job(
     crop_top_px: int = 0,
     title_mask_px: int = 0,
     video_y_scale: float = 2.08,
-    y_scale_mode: str = "fill",
+    y_scale_mode: str = "letterbox",
     output_width: int = 1080,
     output_height: int = 1920,
     render_preset: str = "legacy",
