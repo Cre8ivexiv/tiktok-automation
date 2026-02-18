@@ -189,11 +189,11 @@ def _compute_y_scale_debug(
     video_y_scale: float,
     y_scale_mode: str,
 ) -> dict[str, float | str]:
-    # Match filter step: scale=output_width:-2 (width-only fit with even output height).
-    fit_scale = output_width / source_width
-    fit_width = float(output_width)
-    raw_fit_height = source_height * fit_scale
-    fit_height = max(2.0, float(int(math.floor(raw_fit_height / 2.0) * 2)))
+    # Match filter step: scale=-2:output_height (height-fit with even width).
+    fit_scale = output_height / source_height
+    raw_fit_width = source_width * fit_scale
+    fit_width = max(2.0, float(int(math.floor(raw_fit_width / 2.0) * 2)))
+    fit_height = float(output_height)
     required_fill_scale = output_height / fit_height if fit_height > 0 else 1.0
     if y_scale_mode == "fill":
         effective_y_scale = max(video_y_scale, required_fill_scale)
@@ -388,8 +388,8 @@ def build_video_filter(
     filters: list[str] = []
 
     # Legacy preset filter chain:
-    # width-only fit -> vertical-only scale -> center-crop height -> optional pad fallback -> drawtext
-    filters.append(f"scale={output_width}:-2")
+    # height fit -> vertical-only scale -> center-crop to canvas -> optional pad fallback -> drawtext
+    filters.append(f"scale=-2:{output_height}")
     if effective_y_scale is not None:
         scale_factor_expr = f"{float(effective_y_scale):g}"
     elif y_scale_mode == "fill":
@@ -398,10 +398,12 @@ def build_video_filter(
         scale_factor_expr = f"{safe_video_y_scale:g}"
     filters.append(f"scale=iw:trunc(ih*{scale_factor_expr}/2)*2")
     if y_scale_mode == "fill":
-        filters.append(f"crop=iw:{output_height}:0:(ih-{output_height})/2")
+        filters.append(
+            f"crop={output_width}:{output_height}:(iw-{output_width})/2:(ih-{output_height})/2"
+        )
     else:
         filters.append(
-            f"crop=iw:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2"
+            f"crop={output_width}:min(ih\\,{output_height}):(iw-{output_width})/2:(ih-min(ih\\,{output_height}))/2"
         )
         filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2")
     if title_mask_px > 0:
@@ -432,6 +434,9 @@ def build_video_filter(
             f"x={x_expr}:"
             "y=40"
         )
+
+    # Force square pixels for consistent platform detection.
+    filters.append("setsar=1")
 
     return ",".join(filters)
 

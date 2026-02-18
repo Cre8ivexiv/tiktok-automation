@@ -1,14 +1,28 @@
 # Raw videos / downloads / uploads (local-only)
-downloads/
-uploads/
-clips_*/
+downloads/**
+uploads/**
+clips_*/**
+smoke_*/
+smoke_*/**
 *.mp4
 *.webm
 *.mov
 *.mkv
 
+# Keep empty scaffold folders in repo
+!uploads/
+uploads/*
+!uploads/.gitkeep
+
+!downloads/
+downloads/*
+!downloads/.gitkeep
+
 # Render outputs / job folders
-outputs/
+outputs/**
+!outputs/
+outputs/*
+!outputs/.gitkeep
 
 # Generated reproducibility artifacts (local-only)
 *.render.cmd
@@ -24,16 +38,3 @@ __pycache__/
 .secrets/
 .env
 .env.*
-
-# Keep empty scaffold folders in repo
-!uploads/
-uploads/*
-!uploads/.gitkeep
-
-!downloads/
-downloads/*
-!downloads/.gitkeep
-
-!outputs/
-outputs/*
-!outputs/.gitkeep
