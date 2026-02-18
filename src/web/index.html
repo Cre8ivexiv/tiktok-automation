@@ -265,7 +265,7 @@
       <div class="row">
         <div class="field">
           <label for="cropInput">Crop Top PX</label>
-          <input id="cropInput" type="number" value="120" />
+          <input id="cropInput" type="number" value="0" />
         </div>
         <div class="field">
           <label for="intervalInput">Interval Minutes</label>
@@ -495,7 +495,7 @@
           url: el.url.value.trim(),
           title: el.title.value.trim(),
           channel: el.channel.value.trim(),
-          crop_top_px: Number(el.crop.value || 120),
+          crop_top_px: Number(el.crop.value || 0),
           title_mask_px: Number(el.titleMask.value || 180),
           video_y_scale: Number(el.yScale.value || 2.08),
           render_preset: "legacy",
