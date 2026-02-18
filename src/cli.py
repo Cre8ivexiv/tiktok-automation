@@ -32,7 +32,7 @@ def cmd_process(args: argparse.Namespace) -> int:
         crop_top_px=args.crop_top_px,
         title_mask_px=args.title_mask_px,
         edge_bar_px=args.edge_bar_px,
-        letterbox_bump_px=args.letterbox_bump_px,
+        content_height_bump_px=args.content_height_bump_px,
         video_y_scale=args.video_y_scale,
         y_scale_mode=args.y_scale_mode,
         output_width=args.output_width,
@@ -90,12 +90,17 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument("--title-mask-px", type=int, default=0)
     process_parser.add_argument("--edge-bar-px", type=int, default=45)
     process_parser.add_argument(
-        "--letterbox-bump-px",
-        type=float,
-        default=10.0,
-        help="Reserved for non-letterbox modes (ignored when --y-scale-mode=letterbox)",
+        "--content-height-bump-px",
+        type=int,
+        default=0,
+        help="Zoom-mode only: increase content height in pixels before center pad",
     )
-    process_parser.add_argument("--video-y-scale", type=float, default=2.08)
+    process_parser.add_argument(
+        "--video-y-scale",
+        type=float,
+        default=2.08,
+        help="Vertical scale multiplier for legacy manual/fill modes",
+    )
     process_parser.add_argument(
         "--y-scale-mode",
         choices=["letterbox", "zoom", "manual", "fill"],

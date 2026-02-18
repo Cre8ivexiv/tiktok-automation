@@ -208,6 +208,46 @@ def _expected_dar(width: int, height: int) -> str:
     return f"{width // gcd}:{height // gcd}"
 
 
+def _clamp_even(value: int, minimum: int, maximum: int) -> int:
+    clamped = max(minimum, min(value, maximum))
+    if clamped % 2 != 0:
+        if clamped == maximum:
+            clamped -= 1
+        else:
+            clamped += 1
+    if clamped < minimum:
+        clamped = minimum
+    if clamped % 2 != 0:
+        clamped += 1
+    return max(2, clamped)
+
+
+def _compute_zoom_target_height(
+    *,
+    source_width: int,
+    source_height: int,
+    crop_top_px: int,
+    output_width: int,
+    output_height: int,
+    content_height_bump_px: int,
+) -> dict[str, int | float]:
+    safe_crop_top = max(0, min(crop_top_px, max(0, source_height - 2)))
+    effective_source_height = max(2, source_height - safe_crop_top)
+    raw_base_h = (effective_source_height * output_width) / source_width
+    base_h = _clamp_even(int(round(raw_base_h)), minimum=2, maximum=output_height)
+    target_h = _clamp_even(base_h + max(0, content_height_bump_px), minimum=2, maximum=output_height)
+    return {
+        "source_width": source_width,
+        "source_height": source_height,
+        "crop_top_px": safe_crop_top,
+        "effective_source_height": effective_source_height,
+        "base_height_raw": raw_base_h,
+        "base_height": base_h,
+        "target_height": target_h,
+        "content_height_bump_px": max(0, content_height_bump_px),
+    }
+
+
 def _build_vf_diagnostics(vf: str, output_width: int, output_height: int) -> dict[str, bool]:
     return {
         "setsar_1_in_filter_chain": "setsar=1" in vf,
@@ -506,7 +546,8 @@ def build_video_filter(
     video_y_scale: float = 2.08,
     y_scale_mode: str = "letterbox",
     edge_bar_px: int = 45,
-    letterbox_bump_px: float = 10.0,
+    content_height_bump_px: int = 0,
+    zoom_target_height: int | None = None,
     effective_y_scale: float | None = None,
     render_preset: str = "legacy",
     title_mask_px: int = 0,
@@ -528,6 +569,7 @@ def build_video_filter(
     if y_scale_mode not in {"manual", "fill", "letterbox", "zoom"}:
         raise ValueError("y_scale_mode must be one of: manual, fill, letterbox, zoom")
     safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
+    safe_content_height_bump_px = max(0, int(content_height_bump_px))
     safe_crop_top_px = max(0, int(crop_top_px))
     filters: list[str] = []
 
@@ -577,9 +619,15 @@ def build_video_filter(
             filters.append(
                 f"crop=iw:max(2\\,ih-{safe_crop_top_px}):0:min({safe_crop_top_px}\\,ih-2)"
             )
-        zoom_factor_expr = f"{safe_video_y_scale:g}"
-        filters.append(f"scale=iw:trunc(ih*{zoom_factor_expr}/2)*2")
-        filters.append(f"crop=iw:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2")
+        if zoom_target_height is not None:
+            safe_zoom_target_height = _clamp_even(int(zoom_target_height), minimum=2, maximum=output_height)
+            filters.append(f"scale=-2:{safe_zoom_target_height}")
+            filters.append(f"crop={output_width}:{safe_zoom_target_height}:(iw-{output_width})/2:0")
+        else:
+            filters.append(
+                f"scale=-2:trunc(min(ih+{safe_content_height_bump_px}\\,{output_height})/2)*2"
+            )
+            filters.append(f"crop={output_width}:ih:(iw-{output_width})/2:0")
         filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2:color=black")
         if safe_edge_bar_px > 0:
             filters.append(f"drawbox=x=0:y=0:w=iw:h={safe_edge_bar_px}:color=black@1.0:t=fill")
@@ -678,7 +726,7 @@ def render_parts(
     video_y_scale: float = 2.08,
     y_scale_mode: str = "letterbox",
     edge_bar_px: int = 45,
-    letterbox_bump_px: float = 10.0,
+    content_height_bump_px: int = 0,
     render_preset: str = "legacy",
     title_mask_px: int = 0,
     raise_px: int | None = None,
@@ -699,7 +747,7 @@ def render_parts(
         raise ValueError("y_scale_mode must be one of: manual, fill, letterbox, zoom")
 
     safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
-    safe_letterbox_bump_pct = max(0.0, float(letterbox_bump_px))
+    safe_content_height_bump_px = max(0, int(content_height_bump_px))
 
     rendered_parts: list[RenderedPart] = []
     segment_rows = [
@@ -717,6 +765,8 @@ def render_parts(
 
     y_scale_debug: dict[str, float | str] | None = None
     effective_y_scale_for_filter: float | None = None
+    zoom_target_height_for_filter: int | None = None
+    zoom_debug: dict[str, int | float] | None = None
     source_dims = _probe_video_dimensions(input_video=input_video, ffprobe_bin=ffprobe_bin)
     if source_dims is not None:
         y_scale_debug = _compute_y_scale_debug(
@@ -729,6 +779,16 @@ def render_parts(
         )
         if y_scale_mode == "fill":
             effective_y_scale_for_filter = float(y_scale_debug["effective_y_scale"])
+        if y_scale_mode == "zoom":
+            zoom_debug = _compute_zoom_target_height(
+                source_width=source_dims[0],
+                source_height=source_dims[1],
+                crop_top_px=int(crop_top_px),
+                output_width=output_width,
+                output_height=output_height,
+                content_height_bump_px=safe_content_height_bump_px,
+            )
+            zoom_target_height_for_filter = int(zoom_debug["target_height"])
         log_fn(
             "y_scale_debug: "
             f"base_height={y_scale_debug['base_height']:.3f}, "
@@ -741,10 +801,17 @@ def render_parts(
         log_fn("y_scale_debug: source dimensions unavailable from ffprobe; skipping computed fill metrics.")
     log_fn(
         f"render_config: y_scale_mode={y_scale_mode}, edge_bar_px={safe_edge_bar_px}, "
-        f"letterbox_bump_percent={safe_letterbox_bump_pct:g}, crop_top_px={crop_top_px}, title_mask_px={title_mask_px}"
+        f"content_height_bump_px={safe_content_height_bump_px}, crop_top_px={crop_top_px}, title_mask_px={title_mask_px}"
     )
-    if y_scale_mode == "letterbox" and safe_letterbox_bump_pct > 0:
-        log_fn("render_config: letterbox_bump_percent is ignored in letterbox mode.")
+    if y_scale_mode == "letterbox" and safe_content_height_bump_px > 0:
+        log_fn("render_config: content_height_bump_px is ignored in letterbox mode.")
+    if y_scale_mode == "zoom" and zoom_debug is not None:
+        log_fn(
+            "zoom_debug: "
+            f"base_height={zoom_debug['base_height']}, "
+            f"target_height={zoom_debug['target_height']}, "
+            f"content_height_bump_px={zoom_debug['content_height_bump_px']}"
+        )
 
     for idx, segment in enumerate(segments, start=1):
         if segment.duration <= 0:
@@ -759,7 +826,8 @@ def render_parts(
             video_y_scale=video_y_scale,
             y_scale_mode=y_scale_mode,
             edge_bar_px=safe_edge_bar_px,
-            letterbox_bump_px=safe_letterbox_bump_pct,
+            content_height_bump_px=safe_content_height_bump_px,
+            zoom_target_height=zoom_target_height_for_filter,
             effective_y_scale=effective_y_scale_for_filter,
             render_preset=render_preset,
             title_mask_px=title_mask_px,
@@ -893,8 +961,9 @@ def render_parts(
             "video_y_scale": video_y_scale,
             "y_scale_mode": y_scale_mode,
             "edge_bar_px": safe_edge_bar_px,
-            "letterbox_bump_px": safe_letterbox_bump_pct,
-            "letterbox_bump_percent": safe_letterbox_bump_pct,
+            "content_height_bump_px": safe_content_height_bump_px,
+            "zoom_target_height": (zoom_debug.get("target_height") if zoom_debug else None),
+            "zoom_base_height": (zoom_debug.get("base_height") if zoom_debug else None),
             "base_height": (
                 y_scale_debug.get("base_height")
                 if y_scale_debug is not None
@@ -940,6 +1009,7 @@ def render_parts(
         "ffmpeg_version": _safe_ffmpeg_version(ffmpeg_bin),
         "ffprobe_input": _safe_probe_json(input_video, ffprobe_bin),
         "y_scale_debug": y_scale_debug,
+        "zoom_debug": zoom_debug,
         "known_good_comparison": known_good_report,
     }
     (out_dir / "render_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")

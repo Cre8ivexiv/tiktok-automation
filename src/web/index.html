@@ -279,7 +279,7 @@
           <input id="partSecInput" type="number" value="70" />
         </div>
         <div class="field">
-          <label for="yScaleInput">Zoom</label>
+          <label for="yScaleInput">Y Scale (manual/fill only)</label>
           <input id="yScaleInput" type="number" step="0.01" value="2.08" />
         </div>
       </div>
@@ -300,13 +300,13 @@
       </div>
 
       <div class="field">
-        <label for="edgeBarInput">Edge Bar PX</label>
+        <label for="edgeBarInput">Edge Bar PX (overlay only)</label>
         <input id="edgeBarInput" type="number" value="45" min="0" max="200" />
       </div>
 
       <div class="field">
-        <label for="letterboxBumpInput">Letterbox Bump % (non-letterbox only)</label>
-        <input id="letterboxBumpInput" type="number" value="10" min="0" max="300" step="0.1" />
+        <label for="contentHeightBumpInput">Content Height Bump PX (zoom mode only)</label>
+        <input id="contentHeightBumpInput" type="number" value="0" min="0" max="1600" />
       </div>
 
       <div class="field">
@@ -359,7 +359,7 @@
       yScaleMode: document.getElementById("yScaleModeInput"),
       titleMask: document.getElementById("titleMaskInput"),
       edgeBar: document.getElementById("edgeBarInput"),
-      letterboxBump: document.getElementById("letterboxBumpInput"),
+      contentHeightBump: document.getElementById("contentHeightBumpInput"),
       labelPos: document.getElementById("labelPosInput"),
       noOverlay: document.getElementById("noOverlayInput"),
       processBtn: document.getElementById("processBtn"),
@@ -413,7 +413,7 @@
     }
 
     function setFormDisabled(disabled) {
-      [el.url, el.title, el.channel, el.crop, el.interval, el.partSec, el.yScale, el.yScaleMode, el.titleMask, el.edgeBar, el.letterboxBump, el.labelPos, el.noOverlay].forEach((item) => {
+      [el.url, el.title, el.channel, el.crop, el.interval, el.partSec, el.yScale, el.yScaleMode, el.titleMask, el.edgeBar, el.contentHeightBump, el.labelPos, el.noOverlay].forEach((item) => {
         item.disabled = disabled;
       });
       el.processBtn.disabled = disabled || state.processing || state.uploading;
@@ -521,7 +521,7 @@
           crop_top_px: Number(el.crop.value || 0),
           title_mask_px: Number(el.titleMask.value || 0),
           edge_bar_px: Number(el.edgeBar.value || 45),
-          letterbox_bump_px: Number(el.letterboxBump.value || 10),
+          content_height_bump_px: Number(el.contentHeightBump.value || 0),
           video_y_scale: Number(el.yScale.value || 2.08),
           y_scale_mode: el.yScaleMode.value || "letterbox",
           render_preset: "legacy",
