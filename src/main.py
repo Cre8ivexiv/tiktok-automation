@@ -505,7 +505,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--letterbox-bump-px",
         type=float,
         default=10.0,
-        help="Increase letterbox-mode content height by this percentage before final pad",
+        help="Reserved for non-letterbox modes (ignored when --y-scale-mode=letterbox)",
     )
     render_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
     render_parser.add_argument(
@@ -578,7 +578,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--letterbox-bump-px",
         type=float,
         default=10.0,
-        help="Increase letterbox-mode content height by this percentage before final pad",
+        help="Reserved for non-letterbox modes (ignored when --y-scale-mode=letterbox)",
     )
     process_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
     process_parser.add_argument(
@@ -667,7 +667,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--letterbox-bump-px",
         type=float,
         default=10.0,
-        help="Increase letterbox-mode content height by this percentage before final pad",
+        help="Reserved for non-letterbox modes (ignored when --y-scale-mode=letterbox)",
     )
     run_folder_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
     run_folder_parser.add_argument(

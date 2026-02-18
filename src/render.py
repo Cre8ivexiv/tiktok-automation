@@ -389,14 +389,15 @@ def build_video_filter(
     if y_scale_mode not in {"manual", "fill", "letterbox"}:
         raise ValueError("y_scale_mode must be one of: manual, fill, letterbox")
     safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
-    safe_letterbox_bump_pct = max(0.0, float(letterbox_bump_px))
+    safe_crop_top_px = max(0, int(crop_top_px))
     filters: list[str] = []
 
     if y_scale_mode == "letterbox":
         filters.append(f"scale={output_width}:-2")
-        filters.append(
-            f"pad=iw:trunc(min(ih*(1+{safe_letterbox_bump_pct:g}/100)\\,{output_height})/2)*2:(ow-iw)/2:(oh-ih)/2:color=black"
-        )
+        if safe_crop_top_px > 0:
+            filters.append(
+                f"crop=iw:max(2\\,ih-{safe_crop_top_px}):0:min({safe_crop_top_px}\\,ih-2)"
+            )
         filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2:color=black")
         if safe_edge_bar_px > 0:
             filters.append(f"drawbox=x=0:y=0:w=iw:h={safe_edge_bar_px}:color=black@1.0:t=fill")
@@ -560,6 +561,8 @@ def render_parts(
         f"render_config: y_scale_mode={y_scale_mode}, edge_bar_px={safe_edge_bar_px}, "
         f"letterbox_bump_percent={safe_letterbox_bump_pct:g}, crop_top_px={crop_top_px}, title_mask_px={title_mask_px}"
     )
+    if y_scale_mode == "letterbox" and safe_letterbox_bump_pct > 0:
+        log_fn("render_config: letterbox_bump_percent is ignored in letterbox mode.")
 
     for idx, segment in enumerate(segments, start=1):
         if segment.duration <= 0:
