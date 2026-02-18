@@ -366,6 +366,7 @@ def build_video_filter(
     output_height: int,
     video_y_scale: float = 2.08,
     y_scale_mode: str = "letterbox",
+    edge_bar_px: int = 45,
     effective_y_scale: float | None = None,
     render_preset: str = "legacy",
     title_mask_px: int = 0,
@@ -386,15 +387,17 @@ def build_video_filter(
         raise ValueError("video_y_scale must be greater than 0.")
     if y_scale_mode not in {"manual", "fill", "letterbox"}:
         raise ValueError("y_scale_mode must be one of: manual, fill, letterbox")
-
-    edge_bar_px = 45
+    safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
     filters: list[str] = []
 
     if y_scale_mode == "letterbox":
         filters.append(f"scale={output_width}:-2")
         filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2")
-        filters.append(f"drawbox=x=0:y=0:w=iw:h={edge_bar_px}:color=black@1.0:t=fill")
-        filters.append(f"drawbox=x=0:y=ih-{edge_bar_px}:w=iw:h={edge_bar_px}:color=black@1.0:t=fill")
+        if safe_edge_bar_px > 0:
+            filters.append(f"drawbox=x=0:y=0:w=iw:h={safe_edge_bar_px}:color=black@1.0:t=fill")
+            filters.append(
+                f"drawbox=x=0:y=ih-{safe_edge_bar_px}:w=iw:h={safe_edge_bar_px}:color=black@1.0:t=fill"
+            )
         if part_overlay_enabled:
             label_text = _escape_drawtext_text(f"Part {part_number}")
             if part_label_position == "top-left":
@@ -437,8 +440,8 @@ def build_video_filter(
         f"crop={output_width}:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2"
     )
     filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2")
-    filters.append(f"drawbox=x=0:y=0:w=iw:h={edge_bar_px}:color=black@1.0:t=fill")
-    filters.append(f"drawbox=x=0:y=ih-{edge_bar_px}:w=iw:h={edge_bar_px}:color=black@1.0:t=fill")
+    filters.append("drawbox=x=0:y=0:w=iw:h=45:color=black@1.0:t=fill")
+    filters.append("drawbox=x=0:y=ih-45:w=iw:h=45:color=black@1.0:t=fill")
     if title_mask_px > 0:
         filters.append(f"drawbox=x=0:y=0:w=iw:h={int(title_mask_px)}:color=black@1.0:t=fill")
 
@@ -483,6 +486,7 @@ def render_parts(
     output_height: int = 1920,
     video_y_scale: float = 2.08,
     y_scale_mode: str = "letterbox",
+    edge_bar_px: int = 45,
     render_preset: str = "legacy",
     title_mask_px: int = 0,
     raise_px: int | None = None,
@@ -501,6 +505,8 @@ def render_parts(
 
     if y_scale_mode not in {"manual", "fill", "letterbox"}:
         raise ValueError("y_scale_mode must be one of: manual, fill, letterbox")
+
+    safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
 
     rendered_parts: list[RenderedPart] = []
     segment_rows = [
@@ -540,6 +546,10 @@ def render_parts(
         )
     else:
         log_fn("y_scale_debug: source dimensions unavailable from ffprobe; skipping computed fill metrics.")
+    log_fn(
+        f"render_config: y_scale_mode={y_scale_mode}, edge_bar_px={safe_edge_bar_px}, "
+        f"crop_top_px={crop_top_px}, title_mask_px={title_mask_px}"
+    )
 
     for idx, segment in enumerate(segments, start=1):
         if segment.duration <= 0:
@@ -553,6 +563,7 @@ def render_parts(
             output_height=output_height,
             video_y_scale=video_y_scale,
             y_scale_mode=y_scale_mode,
+            edge_bar_px=safe_edge_bar_px,
             effective_y_scale=effective_y_scale_for_filter,
             render_preset=render_preset,
             title_mask_px=title_mask_px,
@@ -658,6 +669,7 @@ def render_parts(
             "output_height": output_height,
             "video_y_scale": video_y_scale,
             "y_scale_mode": y_scale_mode,
+            "edge_bar_px": safe_edge_bar_px,
             "base_height": (
                 y_scale_debug.get("base_height")
                 if y_scale_debug is not None

@@ -139,6 +139,7 @@ def process_video_job(
     part_seconds: int = 70,
     crop_top_px: int = 0,
     title_mask_px: int = 0,
+    edge_bar_px: int = 45,
     video_y_scale: float = 2.08,
     y_scale_mode: str = "letterbox",
     output_width: int = 1080,
@@ -196,6 +197,7 @@ def process_video_job(
         segments=segments,
         crop_top_px=effective_crop_top,
         title_mask_px=title_mask_px,
+        edge_bar_px=edge_bar_px,
         output_width=effective_out_w,
         output_height=effective_out_h,
         video_y_scale=video_y_scale,
@@ -235,6 +237,7 @@ def process_video_job(
         "render_config": {
             "crop_top_px": effective_crop_top,
             "title_mask_px": title_mask_px,
+            "edge_bar_px": edge_bar_px,
             "video_y_scale": video_y_scale,
             "y_scale_mode": y_scale_mode,
             "output_width": effective_out_w,

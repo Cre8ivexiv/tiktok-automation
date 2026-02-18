@@ -299,6 +299,11 @@
       </div>
 
       <div class="field">
+        <label for="edgeBarInput">Edge Bar PX</label>
+        <input id="edgeBarInput" type="number" value="45" min="0" max="200" />
+      </div>
+
+      <div class="field">
         <label for="labelPosInput">Part Label Position</label>
         <select id="labelPosInput">
           <option value="top-center">top-center</option>
@@ -347,6 +352,7 @@
       yScale: document.getElementById("yScaleInput"),
       yScaleMode: document.getElementById("yScaleModeInput"),
       titleMask: document.getElementById("titleMaskInput"),
+      edgeBar: document.getElementById("edgeBarInput"),
       labelPos: document.getElementById("labelPosInput"),
       noOverlay: document.getElementById("noOverlayInput"),
       processBtn: document.getElementById("processBtn"),
@@ -400,7 +406,7 @@
     }
 
     function setFormDisabled(disabled) {
-      [el.url, el.title, el.channel, el.crop, el.interval, el.partSec, el.yScale, el.yScaleMode, el.titleMask, el.labelPos, el.noOverlay].forEach((item) => {
+      [el.url, el.title, el.channel, el.crop, el.interval, el.partSec, el.yScale, el.yScaleMode, el.titleMask, el.edgeBar, el.labelPos, el.noOverlay].forEach((item) => {
         item.disabled = disabled;
       });
       el.processBtn.disabled = disabled || state.processing || state.uploading;
@@ -507,6 +513,7 @@
           channel: el.channel.value.trim(),
           crop_top_px: Number(el.crop.value || 0),
           title_mask_px: Number(el.titleMask.value || 0),
+          edge_bar_px: Number(el.edgeBar.value || 45),
           video_y_scale: Number(el.yScale.value || 2.08),
           y_scale_mode: el.yScaleMode.value || "letterbox",
           render_preset: "legacy",
