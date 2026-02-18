@@ -189,9 +189,11 @@ def _compute_y_scale_debug(
     video_y_scale: float,
     y_scale_mode: str,
 ) -> dict[str, float | str]:
-    fit_scale = min(output_width / source_width, output_height / source_height)
-    fit_width = source_width * fit_scale
-    fit_height = source_height * fit_scale
+    # Match filter step: scale=output_width:-2 (width-only fit with even output height).
+    fit_scale = output_width / source_width
+    fit_width = float(output_width)
+    raw_fit_height = source_height * fit_scale
+    fit_height = max(2.0, float(int(math.floor(raw_fit_height / 2.0) * 2)))
     required_fill_scale = output_height / fit_height if fit_height > 0 else 1.0
     if y_scale_mode == "fill":
         effective_y_scale = max(video_y_scale, required_fill_scale)
@@ -385,9 +387,9 @@ def build_video_filter(
 
     filters: list[str] = []
 
-    # Legacy preset filter chain (kept stable):
-    # fit inside frame -> vertical-only scale -> center-crop height -> pad to frame -> drawtext
-    filters.append(f"scale={output_width}:{output_height}:force_original_aspect_ratio=decrease")
+    # Legacy preset filter chain:
+    # width-only fit -> vertical-only scale -> center-crop height -> optional pad fallback -> drawtext
+    filters.append(f"scale={output_width}:-2")
     if effective_y_scale is not None:
         scale_factor_expr = f"{float(effective_y_scale):g}"
     elif y_scale_mode == "fill":
@@ -395,10 +397,13 @@ def build_video_filter(
     else:
         scale_factor_expr = f"{safe_video_y_scale:g}"
     filters.append(f"scale=iw:trunc(ih*{scale_factor_expr}/2)*2")
-    filters.append(
-        f"crop=iw:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2"
-    )
-    filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2")
+    if y_scale_mode == "fill":
+        filters.append(f"crop=iw:{output_height}:0:(ih-{output_height})/2")
+    else:
+        filters.append(
+            f"crop=iw:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2"
+        )
+        filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2")
     if title_mask_px > 0:
         filters.append(f"drawbox=x=0:y=0:w=iw:h={int(title_mask_px)}:color=black@1.0:t=fill")
 
@@ -485,7 +490,8 @@ def render_parts(
             video_y_scale=video_y_scale,
             y_scale_mode=y_scale_mode,
         )
-        effective_y_scale_for_filter = float(y_scale_debug["effective_y_scale"])
+        if y_scale_mode == "fill":
+            effective_y_scale_for_filter = float(y_scale_debug["effective_y_scale"])
         log_fn(
             "y_scale_debug: "
             f"base_height={y_scale_debug['base_height']:.3f}, "
