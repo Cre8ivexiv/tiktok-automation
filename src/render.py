@@ -316,10 +316,11 @@ def build_video_filter(
     filters: list[str] = []
 
     # Legacy preset filter chain (kept stable):
-    # fit inside frame -> vertical-only scale with safe clamp -> pad to frame -> drawtext
+    # fit inside frame -> vertical-only scale -> center-crop height -> pad to frame -> drawtext
     filters.append(f"scale={output_width}:{output_height}:force_original_aspect_ratio=decrease")
+    filters.append(f"scale=iw:trunc(ih*{safe_video_y_scale:g}/2)*2")
     filters.append(
-        f"scale=iw:trunc(ih*min({safe_video_y_scale:g}\\,{output_height}/ih)/2)*2"
+        f"crop=iw:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2"
     )
     filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2")
     if title_mask_px > 0:
