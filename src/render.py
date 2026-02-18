@@ -149,6 +149,145 @@ def _safe_probe_short(input_video: Path, ffprobe_bin: str) -> dict[str, Any]:
     }
 
 
+def _safe_probe_tiktok_fields(input_video: Path, ffprobe_bin: str) -> dict[str, Any]:
+    cmd = [
+        ffprobe_bin,
+        "-v",
+        "error",
+        "-show_entries",
+        (
+            "stream=codec_name,width,height,sample_aspect_ratio,display_aspect_ratio,"
+            "pix_fmt,avg_frame_rate,color_range,color_space,color_transfer,color_primaries:"
+            "format=format_name,bit_rate,duration"
+        ),
+        "-of",
+        "json",
+        str(input_video),
+    ]
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        return {"error": f"ffprobe failed ({result.returncode})", "stderr": result.stderr}
+
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {"error": "ffprobe output parse failure", "raw": result.stdout}
+
+    video_stream: dict[str, Any] = {}
+    for stream in payload.get("streams", []):
+        if stream.get("codec_name"):
+            video_stream = stream
+            break
+    fmt = payload.get("format", {})
+    return {
+        "stream": {
+            "width": video_stream.get("width"),
+            "height": video_stream.get("height"),
+            "sample_aspect_ratio": video_stream.get("sample_aspect_ratio"),
+            "display_aspect_ratio": video_stream.get("display_aspect_ratio"),
+            "pix_fmt": video_stream.get("pix_fmt"),
+            "codec_name": video_stream.get("codec_name"),
+            "avg_frame_rate": video_stream.get("avg_frame_rate"),
+            "color_range": video_stream.get("color_range"),
+            "color_space": video_stream.get("color_space"),
+            "color_transfer": video_stream.get("color_transfer"),
+            "color_primaries": video_stream.get("color_primaries"),
+        },
+        "format": {
+            "format_name": fmt.get("format_name"),
+            "bit_rate": fmt.get("bit_rate"),
+            "duration": fmt.get("duration"),
+        },
+    }
+
+
+def _expected_dar(width: int, height: int) -> str:
+    if width <= 0 or height <= 0:
+        return ""
+    gcd = math.gcd(width, height)
+    return f"{width // gcd}:{height // gcd}"
+
+
+def _build_vf_diagnostics(vf: str, output_width: int, output_height: int) -> dict[str, bool]:
+    return {
+        "setsar_1_in_filter_chain": "setsar=1" in vf,
+        "vf_contains_scale_minus2_1920": "scale=-2:1920" in vf,
+        "vf_contains_crop_1080_1920": "crop=1080:1920" in vf,
+        "vf_contains_force_original_aspect_ratio": "force_original_aspect_ratio" in vf,
+        "vf_contains_setsar": "setsar" in vf,
+        "vf_contains_scale_minus2_output_height": f"scale=-2:{output_height}" in vf,
+        "vf_contains_crop_output_dimensions": f"crop={output_width}:{output_height}" in vf,
+    }
+
+
+def _build_tiktok_risk_flags(
+    *,
+    probe: dict[str, Any],
+    vf_diag: dict[str, bool],
+    output_width: int,
+    output_height: int,
+) -> list[str]:
+    flags: list[str] = []
+    if "error" in probe:
+        flags.append(f"ffprobe error: {probe.get('error')}")
+        return flags
+
+    stream = probe.get("stream", {})
+    width = stream.get("width")
+    height = stream.get("height")
+    sar = stream.get("sample_aspect_ratio")
+    dar = stream.get("display_aspect_ratio")
+    pix_fmt = stream.get("pix_fmt")
+
+    if width != output_width or height != output_height:
+        flags.append(f"resolution is {width}x{height}, expected {output_width}x{output_height}")
+    if sar and sar != "1:1":
+        flags.append(f"SAR is {sar}, expected 1:1")
+
+    expected_dar = _expected_dar(output_width, output_height)
+    if dar and expected_dar and dar != expected_dar:
+        flags.append(f"DAR is {dar}, expected {expected_dar}")
+    if pix_fmt and pix_fmt != "yuv420p":
+        flags.append(f"pix_fmt is {pix_fmt}, expected yuv420p")
+
+    if not vf_diag.get("setsar_1_in_filter_chain", False):
+        flags.append("filter chain missing setsar=1")
+    if vf_diag.get("vf_contains_scale_minus2_1920", False) or vf_diag.get("vf_contains_scale_minus2_output_height", False):
+        flags.append("filter chain includes height-fit scale (scale=-2:height)")
+    if vf_diag.get("vf_contains_crop_1080_1920", False) or vf_diag.get("vf_contains_crop_output_dimensions", False):
+        flags.append("filter chain includes full-frame crop (crop=width:height)")
+    if vf_diag.get("vf_contains_force_original_aspect_ratio", False):
+        flags.append("filter chain includes force_original_aspect_ratio")
+
+    return flags
+
+
+def _tiktok_probe_diff(good_probe: dict[str, Any], new_probe: dict[str, Any]) -> list[str]:
+    keys = [
+        ("stream", "width"),
+        ("stream", "height"),
+        ("stream", "sample_aspect_ratio"),
+        ("stream", "display_aspect_ratio"),
+        ("stream", "pix_fmt"),
+        ("stream", "codec_name"),
+        ("stream", "avg_frame_rate"),
+        ("stream", "color_range"),
+        ("stream", "color_space"),
+        ("stream", "color_transfer"),
+        ("stream", "color_primaries"),
+        ("format", "format_name"),
+        ("format", "bit_rate"),
+        ("format", "duration"),
+    ]
+    rows: list[str] = []
+    for scope, key in keys:
+        good_value = (good_probe.get(scope) or {}).get(key)
+        new_value = (new_probe.get(scope) or {}).get(key)
+        marker = "==" if good_value == new_value else "!="
+        rows.append(f"{scope}.{key}: {good_value} {marker} {new_value}")
+    return rows
+
+
 def _probe_video_dimensions(input_video: Path, ffprobe_bin: str) -> tuple[int, int] | None:
     cmd = [
         ffprobe_bin,
@@ -386,8 +525,8 @@ def build_video_filter(
     safe_video_y_scale = float(video_y_scale)
     if safe_video_y_scale <= 0:
         raise ValueError("video_y_scale must be greater than 0.")
-    if y_scale_mode not in {"manual", "fill", "letterbox"}:
-        raise ValueError("y_scale_mode must be one of: manual, fill, letterbox")
+    if y_scale_mode not in {"manual", "fill", "letterbox", "zoom"}:
+        raise ValueError("y_scale_mode must be one of: manual, fill, letterbox, zoom")
     safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
     safe_crop_top_px = max(0, int(crop_top_px))
     filters: list[str] = []
@@ -398,6 +537,49 @@ def build_video_filter(
             filters.append(
                 f"crop=iw:max(2\\,ih-{safe_crop_top_px}):0:min({safe_crop_top_px}\\,ih-2)"
             )
+        filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2:color=black")
+        if safe_edge_bar_px > 0:
+            filters.append(f"drawbox=x=0:y=0:w=iw:h={safe_edge_bar_px}:color=black@1.0:t=fill")
+            filters.append(
+                f"drawbox=x=0:y=ih-{safe_edge_bar_px}:w=iw:h={safe_edge_bar_px}:color=black@1.0:t=fill"
+            )
+        if part_overlay_enabled:
+            label_text = _escape_drawtext_text(f"Part {part_number}")
+            if part_label_position == "top-left":
+                x_expr = "40"
+            else:
+                x_expr = "(w-text_w)/2"
+
+            font_arg = ""
+            if font_file:
+                font_arg = f"fontfile='{_escape_filter_path(font_file)}':"
+
+            filters.append(
+                "drawtext="
+                f"{font_arg}"
+                f"text='{label_text}':"
+                "fontsize=64:"
+                "fontcolor=white:"
+                "borderw=3:"
+                "bordercolor=black:"
+                "box=1:"
+                "boxcolor=black@0.45:"
+                "boxborderw=14:"
+                f"x={x_expr}:"
+                "y=40"
+            )
+        filters.append("setsar=1")
+        return ",".join(filters)
+
+    if y_scale_mode == "zoom":
+        filters.append(f"scale={output_width}:-2")
+        if safe_crop_top_px > 0:
+            filters.append(
+                f"crop=iw:max(2\\,ih-{safe_crop_top_px}):0:min({safe_crop_top_px}\\,ih-2)"
+            )
+        zoom_factor_expr = f"{safe_video_y_scale:g}"
+        filters.append(f"scale=iw:trunc(ih*{zoom_factor_expr}/2)*2")
+        filters.append(f"crop=iw:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2")
         filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2:color=black")
         if safe_edge_bar_px > 0:
             filters.append(f"drawbox=x=0:y=0:w=iw:h={safe_edge_bar_px}:color=black@1.0:t=fill")
@@ -513,8 +695,8 @@ def render_parts(
     out_dir.mkdir(parents=True, exist_ok=True)
     log_fn = log or print
 
-    if y_scale_mode not in {"manual", "fill", "letterbox"}:
-        raise ValueError("y_scale_mode must be one of: manual, fill, letterbox")
+    if y_scale_mode not in {"manual", "fill", "letterbox", "zoom"}:
+        raise ValueError("y_scale_mode must be one of: manual, fill, letterbox, zoom")
 
     safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
     safe_letterbox_bump_pct = max(0.0, float(letterbox_bump_px))
@@ -627,6 +809,24 @@ def render_parts(
 
         _run_command(cmd)
 
+        tiktok_probe = _safe_probe_tiktok_fields(output_path, ffprobe_bin)
+        vf_diag = _build_vf_diagnostics(video_filter, output_width=output_width, output_height=output_height)
+        tiktok_risk_flags = _build_tiktok_risk_flags(
+            probe=tiktok_probe,
+            vf_diag=vf_diag,
+            output_width=output_width,
+            output_height=output_height,
+        )
+        tiktok_probe_block = {
+            **tiktok_probe,
+            "filter_diagnostics": vf_diag,
+            "risk_flags": tiktok_risk_flags,
+        }
+        if tiktok_risk_flags:
+            log_fn(f"TikTok risk flags (part {idx}): {'; '.join(tiktok_risk_flags)}")
+        else:
+            log_fn(f"TikTok risk flags (part {idx}): none")
+
         part_commands.append(
             {
                 "part_number": idx,
@@ -638,6 +838,7 @@ def render_parts(
                 "output_path": str(output_path.resolve()),
                 "start_time": format_ffmpeg_time(segment.start),
                 "end_time": format_ffmpeg_time(segment.end),
+                "tiktok_probe": tiktok_probe_block,
             }
         )
         rendered_parts.append(
@@ -667,9 +868,17 @@ def render_parts(
             "known_good_stats": known_good_stats,
             "rendered_stats": rendered_stats,
             "short_diff": _short_probe_diff(known_good_stats, rendered_stats),
+            "known_good_tiktok_probe": _safe_probe_tiktok_fields(known_good_path, ffprobe_bin),
+            "rendered_tiktok_probe": _safe_probe_tiktok_fields(rendered_part1, ffprobe_bin),
         }
+        known_good_report["tiktok_probe_diff"] = _tiktok_probe_diff(
+            known_good_report["known_good_tiktok_probe"],
+            known_good_report["rendered_tiktok_probe"],
+        )
         for line in known_good_report["short_diff"]:
             log_fn(f"known_good_diff: {line}")
+        for line in known_good_report["tiktok_probe_diff"]:
+            log_fn(f"known_good_tiktok_diff: {line}")
 
     manifest = {
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -726,6 +935,7 @@ def render_parts(
         },
         "segments": segment_rows,
         "resolved_filter_chain": [item["vf"] for item in part_commands],
+        "tiktok_probe": [item.get("tiktok_probe") for item in part_commands],
         "parts": part_commands,
         "ffmpeg_version": _safe_ffmpeg_version(ffmpeg_bin),
         "ffprobe_input": _safe_probe_json(input_video, ffprobe_bin),

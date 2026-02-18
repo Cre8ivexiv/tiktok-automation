@@ -98,7 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument("--video-y-scale", type=float, default=2.08)
     process_parser.add_argument(
         "--y-scale-mode",
-        choices=["manual", "fill", "letterbox"],
+        choices=["letterbox", "zoom", "manual", "fill"],
         default="letterbox",
     )
     process_parser.add_argument("--render-preset", type=str, default="legacy")
