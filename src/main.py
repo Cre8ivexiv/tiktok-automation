@@ -165,7 +165,7 @@ def render_pipeline(
     crop_top_px: int,
     title_mask_px: int,
     edge_bar_px: int,
-    letterbox_bump_px: int,
+    letterbox_bump_px: float,
     video_y_scale: float,
     y_scale_mode: str,
     render_preset: str,
@@ -503,9 +503,9 @@ def build_parser() -> argparse.ArgumentParser:
     render_parser.add_argument("--edge-bar-px", type=int, default=45, help="Top/bottom dark band size in pixels")
     render_parser.add_argument(
         "--letterbox-bump-px",
-        type=int,
-        default=20,
-        help="Increase letterbox-mode content height by this many pixels before padding",
+        type=float,
+        default=10.0,
+        help="Increase letterbox-mode content height by this percentage before final pad",
     )
     render_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
     render_parser.add_argument(
@@ -576,9 +576,9 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument("--edge-bar-px", type=int, default=45, help="Top/bottom dark band size in pixels")
     process_parser.add_argument(
         "--letterbox-bump-px",
-        type=int,
-        default=20,
-        help="Increase letterbox-mode content height by this many pixels before padding",
+        type=float,
+        default=10.0,
+        help="Increase letterbox-mode content height by this percentage before final pad",
     )
     process_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
     process_parser.add_argument(
@@ -665,9 +665,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_folder_parser.add_argument("--edge-bar-px", type=int, default=45, help="Top/bottom dark band size in pixels")
     run_folder_parser.add_argument(
         "--letterbox-bump-px",
-        type=int,
-        default=20,
-        help="Increase letterbox-mode content height by this many pixels before padding",
+        type=float,
+        default=10.0,
+        help="Increase letterbox-mode content height by this percentage before final pad",
     )
     run_folder_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
     run_folder_parser.add_argument(

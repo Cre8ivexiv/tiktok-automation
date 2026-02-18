@@ -367,7 +367,7 @@ def build_video_filter(
     video_y_scale: float = 2.08,
     y_scale_mode: str = "letterbox",
     edge_bar_px: int = 45,
-    letterbox_bump_px: int = 20,
+    letterbox_bump_px: float = 10.0,
     effective_y_scale: float | None = None,
     render_preset: str = "legacy",
     title_mask_px: int = 0,
@@ -389,13 +389,13 @@ def build_video_filter(
     if y_scale_mode not in {"manual", "fill", "letterbox"}:
         raise ValueError("y_scale_mode must be one of: manual, fill, letterbox")
     safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
-    safe_letterbox_bump_px = max(0, int(letterbox_bump_px))
+    safe_letterbox_bump_pct = max(0.0, float(letterbox_bump_px))
     filters: list[str] = []
 
     if y_scale_mode == "letterbox":
         filters.append(f"scale={output_width}:-2")
         filters.append(
-            f"scale=iw:trunc(min(ih+{safe_letterbox_bump_px}\\,{output_height})/2)*2"
+            f"pad=iw:trunc(min(ih*(1+{safe_letterbox_bump_pct:g}/100)\\,{output_height})/2)*2:(ow-iw)/2:(oh-ih)/2:color=black"
         )
         filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2:color=black")
         if safe_edge_bar_px > 0:
@@ -495,7 +495,7 @@ def render_parts(
     video_y_scale: float = 2.08,
     y_scale_mode: str = "letterbox",
     edge_bar_px: int = 45,
-    letterbox_bump_px: int = 20,
+    letterbox_bump_px: float = 10.0,
     render_preset: str = "legacy",
     title_mask_px: int = 0,
     raise_px: int | None = None,
@@ -516,7 +516,7 @@ def render_parts(
         raise ValueError("y_scale_mode must be one of: manual, fill, letterbox")
 
     safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
-    safe_letterbox_bump_px = max(0, int(letterbox_bump_px))
+    safe_letterbox_bump_pct = max(0.0, float(letterbox_bump_px))
 
     rendered_parts: list[RenderedPart] = []
     segment_rows = [
@@ -558,7 +558,7 @@ def render_parts(
         log_fn("y_scale_debug: source dimensions unavailable from ffprobe; skipping computed fill metrics.")
     log_fn(
         f"render_config: y_scale_mode={y_scale_mode}, edge_bar_px={safe_edge_bar_px}, "
-        f"letterbox_bump_px={safe_letterbox_bump_px}, crop_top_px={crop_top_px}, title_mask_px={title_mask_px}"
+        f"letterbox_bump_percent={safe_letterbox_bump_pct:g}, crop_top_px={crop_top_px}, title_mask_px={title_mask_px}"
     )
 
     for idx, segment in enumerate(segments, start=1):
@@ -574,7 +574,7 @@ def render_parts(
             video_y_scale=video_y_scale,
             y_scale_mode=y_scale_mode,
             edge_bar_px=safe_edge_bar_px,
-            letterbox_bump_px=safe_letterbox_bump_px,
+            letterbox_bump_px=safe_letterbox_bump_pct,
             effective_y_scale=effective_y_scale_for_filter,
             render_preset=render_preset,
             title_mask_px=title_mask_px,
@@ -681,7 +681,8 @@ def render_parts(
             "video_y_scale": video_y_scale,
             "y_scale_mode": y_scale_mode,
             "edge_bar_px": safe_edge_bar_px,
-            "letterbox_bump_px": safe_letterbox_bump_px,
+            "letterbox_bump_px": safe_letterbox_bump_pct,
+            "letterbox_bump_percent": safe_letterbox_bump_pct,
             "base_height": (
                 y_scale_debug.get("base_height")
                 if y_scale_debug is not None

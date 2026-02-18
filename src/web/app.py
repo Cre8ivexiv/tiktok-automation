@@ -32,7 +32,7 @@ class ProcessRequest(BaseModel):
     crop_top_px: int = 0
     title_mask_px: int = 0
     edge_bar_px: int = 45
-    letterbox_bump_px: int = 20
+    letterbox_bump_px: float = 10.0
     video_y_scale: float = 2.08
     y_scale_mode: str = "letterbox"
     interval_min: int = 30

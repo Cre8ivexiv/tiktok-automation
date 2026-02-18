@@ -89,7 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument("--crop-top-px", type=int, default=0)
     process_parser.add_argument("--title-mask-px", type=int, default=0)
     process_parser.add_argument("--edge-bar-px", type=int, default=45)
-    process_parser.add_argument("--letterbox-bump-px", type=int, default=20)
+    process_parser.add_argument("--letterbox-bump-px", type=float, default=10.0)
     process_parser.add_argument("--video-y-scale", type=float, default=2.08)
     process_parser.add_argument(
         "--y-scale-mode",

@@ -304,8 +304,8 @@
       </div>
 
       <div class="field">
-        <label for="letterboxBumpInput">Letterbox Bump PX</label>
-        <input id="letterboxBumpInput" type="number" value="20" min="0" max="1920" />
+        <label for="letterboxBumpInput">Letterbox Bump %</label>
+        <input id="letterboxBumpInput" type="number" value="10" min="0" max="300" step="0.1" />
       </div>
 
       <div class="field">
@@ -520,7 +520,7 @@
           crop_top_px: Number(el.crop.value || 0),
           title_mask_px: Number(el.titleMask.value || 0),
           edge_bar_px: Number(el.edgeBar.value || 45),
-          letterbox_bump_px: Number(el.letterboxBump.value || 20),
+          letterbox_bump_px: Number(el.letterboxBump.value || 10),
           video_y_scale: Number(el.yScale.value || 2.08),
           y_scale_mode: el.yScaleMode.value || "letterbox",
           render_preset: "legacy",
