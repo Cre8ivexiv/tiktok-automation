@@ -304,6 +304,11 @@
       </div>
 
       <div class="field">
+        <label for="letterboxBumpInput">Letterbox Bump PX</label>
+        <input id="letterboxBumpInput" type="number" value="20" min="0" max="1920" />
+      </div>
+
+      <div class="field">
         <label for="labelPosInput">Part Label Position</label>
         <select id="labelPosInput">
           <option value="top-center">top-center</option>
@@ -353,6 +358,7 @@
       yScaleMode: document.getElementById("yScaleModeInput"),
       titleMask: document.getElementById("titleMaskInput"),
       edgeBar: document.getElementById("edgeBarInput"),
+      letterboxBump: document.getElementById("letterboxBumpInput"),
       labelPos: document.getElementById("labelPosInput"),
       noOverlay: document.getElementById("noOverlayInput"),
       processBtn: document.getElementById("processBtn"),
@@ -406,7 +412,7 @@
     }
 
     function setFormDisabled(disabled) {
-      [el.url, el.title, el.channel, el.crop, el.interval, el.partSec, el.yScale, el.yScaleMode, el.titleMask, el.edgeBar, el.labelPos, el.noOverlay].forEach((item) => {
+      [el.url, el.title, el.channel, el.crop, el.interval, el.partSec, el.yScale, el.yScaleMode, el.titleMask, el.edgeBar, el.letterboxBump, el.labelPos, el.noOverlay].forEach((item) => {
         item.disabled = disabled;
       });
       el.processBtn.disabled = disabled || state.processing || state.uploading;
@@ -514,6 +520,7 @@
           crop_top_px: Number(el.crop.value || 0),
           title_mask_px: Number(el.titleMask.value || 0),
           edge_bar_px: Number(el.edgeBar.value || 45),
+          letterbox_bump_px: Number(el.letterboxBump.value || 20),
           video_y_scale: Number(el.yScale.value || 2.08),
           y_scale_mode: el.yScaleMode.value || "letterbox",
           render_preset: "legacy",

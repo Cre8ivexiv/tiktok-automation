@@ -165,6 +165,7 @@ def render_pipeline(
     crop_top_px: int,
     title_mask_px: int,
     edge_bar_px: int,
+    letterbox_bump_px: int,
     video_y_scale: float,
     y_scale_mode: str,
     render_preset: str,
@@ -194,6 +195,7 @@ def render_pipeline(
         crop_top_px=effective_crop_top,
         title_mask_px=title_mask_px,
         edge_bar_px=edge_bar_px,
+        letterbox_bump_px=letterbox_bump_px,
         video_y_scale=video_y_scale,
         y_scale_mode=y_scale_mode,
         render_preset=render_preset,
@@ -210,6 +212,7 @@ def render_pipeline(
         "crop_top_px": effective_crop_top,
         "title_mask_px": title_mask_px,
         "edge_bar_px": edge_bar_px,
+        "letterbox_bump_px": letterbox_bump_px,
         "video_y_scale": video_y_scale,
         "y_scale_mode": y_scale_mode,
         "render_preset": render_preset,
@@ -234,6 +237,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         crop_top_px=args.crop_top_px,
         title_mask_px=args.title_mask_px,
         edge_bar_px=args.edge_bar_px,
+        letterbox_bump_px=args.letterbox_bump_px,
         video_y_scale=args.video_y_scale,
         y_scale_mode=args.y_scale_mode,
         render_preset=args.render_preset,
@@ -328,6 +332,7 @@ def cmd_process(args: argparse.Namespace) -> int:
         crop_top_px=args.crop_top_px,
         title_mask_px=args.title_mask_px,
         edge_bar_px=args.edge_bar_px,
+        letterbox_bump_px=args.letterbox_bump_px,
         video_y_scale=args.video_y_scale,
         y_scale_mode=args.y_scale_mode,
         render_preset=args.render_preset,
@@ -423,6 +428,7 @@ def cmd_run_folder(args: argparse.Namespace) -> int:
             crop_top_px=args.crop_top_px,
             title_mask_px=args.title_mask_px,
             edge_bar_px=args.edge_bar_px,
+            letterbox_bump_px=args.letterbox_bump_px,
             video_y_scale=args.video_y_scale,
             y_scale_mode=args.y_scale_mode,
             render_preset=args.render_preset,
@@ -495,6 +501,12 @@ def build_parser() -> argparse.ArgumentParser:
     render_parser.add_argument("--crop-top-px", type=int, default=0, help="Top pixels to crop")
     render_parser.add_argument("--title-mask-px", type=int, default=0, help="Top title mask height in pixels")
     render_parser.add_argument("--edge-bar-px", type=int, default=45, help="Top/bottom dark band size in pixels")
+    render_parser.add_argument(
+        "--letterbox-bump-px",
+        type=int,
+        default=20,
+        help="Increase letterbox-mode content height by this many pixels before padding",
+    )
     render_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
     render_parser.add_argument(
         "--y-scale-mode",
@@ -562,6 +574,12 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument("--crop-top-px", type=int, default=0, help="Top pixels to crop")
     process_parser.add_argument("--title-mask-px", type=int, default=0, help="Top title mask height in pixels")
     process_parser.add_argument("--edge-bar-px", type=int, default=45, help="Top/bottom dark band size in pixels")
+    process_parser.add_argument(
+        "--letterbox-bump-px",
+        type=int,
+        default=20,
+        help="Increase letterbox-mode content height by this many pixels before padding",
+    )
     process_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
     process_parser.add_argument(
         "--y-scale-mode",
@@ -645,6 +663,12 @@ def build_parser() -> argparse.ArgumentParser:
     run_folder_parser.add_argument("--crop-top-px", type=int, default=0, help="Top pixels to crop")
     run_folder_parser.add_argument("--title-mask-px", type=int, default=0, help="Top title mask height in pixels")
     run_folder_parser.add_argument("--edge-bar-px", type=int, default=45, help="Top/bottom dark band size in pixels")
+    run_folder_parser.add_argument(
+        "--letterbox-bump-px",
+        type=int,
+        default=20,
+        help="Increase letterbox-mode content height by this many pixels before padding",
+    )
     run_folder_parser.add_argument("--video-y-scale", type=float, default=2.08, help="Vertical scale multiplier")
     run_folder_parser.add_argument(
         "--y-scale-mode",
