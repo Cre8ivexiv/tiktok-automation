@@ -231,12 +231,16 @@ def _compute_zoom_target_height(
     output_width: int,
     output_height: int,
     content_height_bump_px: int,
+    content_max_height_px: int,
 ) -> dict[str, int | float]:
     safe_crop_top = max(0, min(crop_top_px, max(0, source_height - 2)))
     effective_source_height = max(2, source_height - safe_crop_top)
     raw_base_h = (effective_source_height * output_width) / source_width
     base_h = _clamp_even(int(round(raw_base_h)), minimum=2, maximum=output_height)
-    target_h = _clamp_even(base_h + max(0, content_height_bump_px), minimum=2, maximum=output_height)
+    max_height_cap = output_height
+    if content_max_height_px > 0:
+        max_height_cap = _clamp_even(content_max_height_px, minimum=2, maximum=output_height)
+    target_h = _clamp_even(base_h + max(0, content_height_bump_px), minimum=2, maximum=max_height_cap)
     return {
         "source_width": source_width,
         "source_height": source_height,
@@ -244,6 +248,7 @@ def _compute_zoom_target_height(
         "effective_source_height": effective_source_height,
         "base_height_raw": raw_base_h,
         "base_height": base_h,
+        "content_max_height_px": max_height_cap,
         "target_height": target_h,
         "content_height_bump_px": max(0, content_height_bump_px),
     }
@@ -548,6 +553,7 @@ def build_video_filter(
     y_scale_mode: str = "letterbox",
     edge_bar_px: int = 45,
     content_height_bump_px: int = 0,
+    content_max_height_px: int = 0,
     zoom_target_height: int | None = None,
     effective_y_scale: float | None = None,
     render_preset: str = "legacy",
@@ -571,6 +577,9 @@ def build_video_filter(
         raise ValueError("y_scale_mode must be one of: manual, fill, letterbox, zoom")
     safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
     safe_content_height_bump_px = max(0, int(content_height_bump_px))
+    safe_content_max_height_px = 0
+    if int(content_max_height_px) > 0:
+        safe_content_max_height_px = _clamp_even(int(content_max_height_px), minimum=2, maximum=output_height)
     safe_crop_top_px = max(0, int(crop_top_px))
     filters: list[str] = []
 
@@ -621,7 +630,8 @@ def build_video_filter(
                 f"crop=iw:max(2\\,ih-{safe_crop_top_px}):0:min({safe_crop_top_px}\\,ih-2)"
             )
         if zoom_target_height is not None:
-            safe_zoom_target_height = _clamp_even(int(zoom_target_height), minimum=2, maximum=output_height)
+            zoom_max_h = safe_content_max_height_px if safe_content_max_height_px > 0 else output_height
+            safe_zoom_target_height = _clamp_even(int(zoom_target_height), minimum=2, maximum=zoom_max_h)
             filters.append(f"scale=-2:{safe_zoom_target_height}")
             filters.append(f"crop={output_width}:{safe_zoom_target_height}:(iw-{output_width})/2:0")
         else:
@@ -736,6 +746,7 @@ def render_parts(
     y_scale_mode: str = "letterbox",
     edge_bar_px: int = 45,
     content_height_bump_px: int = 0,
+    content_max_height_px: int = 0,
     render_preset: str = "legacy",
     title_mask_px: int = 0,
     raise_px: int | None = None,
@@ -757,6 +768,9 @@ def render_parts(
 
     safe_edge_bar_px = max(0, min(int(edge_bar_px), 200))
     safe_content_height_bump_px = max(0, int(content_height_bump_px))
+    safe_content_max_height_px = 0
+    if int(content_max_height_px) > 0:
+        safe_content_max_height_px = _clamp_even(int(content_max_height_px), minimum=2, maximum=output_height)
 
     rendered_parts: list[RenderedPart] = []
     segment_rows = [
@@ -796,6 +810,7 @@ def render_parts(
                 output_width=output_width,
                 output_height=output_height,
                 content_height_bump_px=safe_content_height_bump_px,
+                content_max_height_px=safe_content_max_height_px,
             )
             zoom_target_height_for_filter = int(zoom_debug["target_height"])
         log_fn(
@@ -810,7 +825,8 @@ def render_parts(
         log_fn("y_scale_debug: source dimensions unavailable from ffprobe; skipping computed fill metrics.")
     log_fn(
         f"render_config: y_scale_mode={y_scale_mode}, edge_bar_px={safe_edge_bar_px}, "
-        f"content_height_bump_px={safe_content_height_bump_px}, crop_top_px={crop_top_px}, title_mask_px={title_mask_px}"
+        f"content_height_bump_px={safe_content_height_bump_px}, content_max_height_px={safe_content_max_height_px}, "
+        f"crop_top_px={crop_top_px}, title_mask_px={title_mask_px}"
     )
     if y_scale_mode == "letterbox" and safe_content_height_bump_px > 0:
         log_fn("render_config: content_height_bump_px is ignored in letterbox mode.")
@@ -819,6 +835,7 @@ def render_parts(
             "zoom_debug: "
             f"base_height={zoom_debug['base_height']}, "
             f"target_height={zoom_debug['target_height']}, "
+            f"content_max_height_px={zoom_debug['content_max_height_px']}, "
             f"content_height_bump_px={zoom_debug['content_height_bump_px']}"
         )
 
@@ -836,6 +853,7 @@ def render_parts(
             y_scale_mode=y_scale_mode,
             edge_bar_px=safe_edge_bar_px,
             content_height_bump_px=safe_content_height_bump_px,
+            content_max_height_px=safe_content_max_height_px,
             zoom_target_height=zoom_target_height_for_filter,
             effective_y_scale=effective_y_scale_for_filter,
             render_preset=render_preset,
@@ -971,6 +989,7 @@ def render_parts(
             "y_scale_mode": y_scale_mode,
             "edge_bar_px": safe_edge_bar_px,
             "content_height_bump_px": safe_content_height_bump_px,
+            "content_max_height_px": safe_content_max_height_px,
             "zoom_target_height": (zoom_debug.get("target_height") if zoom_debug else None),
             "zoom_base_height": (zoom_debug.get("base_height") if zoom_debug else None),
             "base_height": (

@@ -166,6 +166,7 @@ def render_pipeline(
     title_mask_px: int,
     edge_bar_px: int,
     content_height_bump_px: int,
+    content_max_height_px: int,
     video_y_scale: float,
     y_scale_mode: str,
     render_preset: str,
@@ -196,6 +197,7 @@ def render_pipeline(
         title_mask_px=title_mask_px,
         edge_bar_px=edge_bar_px,
         content_height_bump_px=content_height_bump_px,
+        content_max_height_px=content_max_height_px,
         video_y_scale=video_y_scale,
         y_scale_mode=y_scale_mode,
         render_preset=render_preset,
@@ -213,6 +215,7 @@ def render_pipeline(
         "title_mask_px": title_mask_px,
         "edge_bar_px": edge_bar_px,
         "content_height_bump_px": content_height_bump_px,
+        "content_max_height_px": content_max_height_px,
         "video_y_scale": video_y_scale,
         "y_scale_mode": y_scale_mode,
         "render_preset": render_preset,
@@ -238,6 +241,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         title_mask_px=args.title_mask_px,
         edge_bar_px=args.edge_bar_px,
         content_height_bump_px=args.content_height_bump_px,
+        content_max_height_px=args.content_max_height_px,
         video_y_scale=args.video_y_scale,
         y_scale_mode=args.y_scale_mode,
         render_preset=args.render_preset,
@@ -333,6 +337,7 @@ def cmd_process(args: argparse.Namespace) -> int:
         title_mask_px=args.title_mask_px,
         edge_bar_px=args.edge_bar_px,
         content_height_bump_px=args.content_height_bump_px,
+        content_max_height_px=args.content_max_height_px,
         video_y_scale=args.video_y_scale,
         y_scale_mode=args.y_scale_mode,
         render_preset=args.render_preset,
@@ -429,6 +434,7 @@ def cmd_run_folder(args: argparse.Namespace) -> int:
             title_mask_px=args.title_mask_px,
             edge_bar_px=args.edge_bar_px,
             content_height_bump_px=args.content_height_bump_px,
+            content_max_height_px=args.content_max_height_px,
             video_y_scale=args.video_y_scale,
             y_scale_mode=args.y_scale_mode,
             render_preset=args.render_preset,
@@ -513,6 +519,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Zoom-mode only: increase content height in pixels before center pad",
     )
     render_parser.add_argument(
+        "--content-max-height-px",
+        type=int,
+        default=0,
+        help="Zoom-mode only: cap max content height (0 = no cap)",
+    )
+    render_parser.add_argument(
         "--video-y-scale",
         type=float,
         default=2.08,
@@ -594,6 +606,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="Zoom-mode only: increase content height in pixels before center pad",
+    )
+    process_parser.add_argument(
+        "--content-max-height-px",
+        type=int,
+        default=0,
+        help="Zoom-mode only: cap max content height (0 = no cap)",
     )
     process_parser.add_argument(
         "--video-y-scale",
@@ -693,6 +711,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="Zoom-mode only: increase content height in pixels before center pad",
+    )
+    run_folder_parser.add_argument(
+        "--content-max-height-px",
+        type=int,
+        default=0,
+        help="Zoom-mode only: cap max content height (0 = no cap)",
     )
     run_folder_parser.add_argument(
         "--video-y-scale",

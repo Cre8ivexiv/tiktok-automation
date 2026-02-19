@@ -33,6 +33,7 @@ class ProcessRequest(BaseModel):
     title_mask_px: int = 0
     edge_bar_px: int = 45
     content_height_bump_px: int = 0
+    content_max_height_px: int = 0
     video_y_scale: float = 2.08
     y_scale_mode: str = "letterbox"
     interval_min: int = 30
@@ -69,6 +70,7 @@ def _process_task(job_id: str, request: ProcessRequest) -> None:
             title_mask_px=request.title_mask_px,
             edge_bar_px=request.edge_bar_px,
             content_height_bump_px=request.content_height_bump_px,
+            content_max_height_px=request.content_max_height_px,
             video_y_scale=request.video_y_scale,
             y_scale_mode=request.y_scale_mode,
             output_width=request.output_width,

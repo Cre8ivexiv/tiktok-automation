@@ -33,6 +33,7 @@ def cmd_process(args: argparse.Namespace) -> int:
         title_mask_px=args.title_mask_px,
         edge_bar_px=args.edge_bar_px,
         content_height_bump_px=args.content_height_bump_px,
+        content_max_height_px=args.content_max_height_px,
         video_y_scale=args.video_y_scale,
         y_scale_mode=args.y_scale_mode,
         output_width=args.output_width,
@@ -94,6 +95,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="Zoom-mode only: increase content height in pixels before center pad",
+    )
+    process_parser.add_argument(
+        "--content-max-height-px",
+        type=int,
+        default=0,
+        help="Zoom-mode only: cap max content height (0 = no cap)",
     )
     process_parser.add_argument(
         "--video-y-scale",

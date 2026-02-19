@@ -164,10 +164,15 @@
           <label for="edgeBarPx">Edge Bar PX (overlay only)</label>
           <input id="edgeBarPx" type="number" value="45" min="0" max="200">
         </div>
-        <div class="field">
-          <label for="contentHeightBumpPx">Content Height Bump PX (zoom mode)</label>
-          <input id="contentHeightBumpPx" type="number" value="0" min="0" max="1600">
-        </div>
+      <div class="field">
+        <label for="contentHeightBumpPx">Content Height Bump PX (zoom mode)</label>
+        <input id="contentHeightBumpPx" type="number" value="0" min="0" max="1600">
+      </div>
+
+      <div class="field">
+        <label for="contentMaxHeightPx">Content Max Height PX (zoom mode stop line)</label>
+        <input id="contentMaxHeightPx" type="number" value="0" min="0" max="1920">
+      </div>
       </div>
 
       <div class="row">
@@ -242,6 +247,7 @@
       titleMaskPx: document.getElementById("titleMaskPx"),
       edgeBarPx: document.getElementById("edgeBarPx"),
       contentHeightBumpPx: document.getElementById("contentHeightBumpPx"),
+      contentMaxHeightPx: document.getElementById("contentMaxHeightPx"),
       yScaleMode: document.getElementById("yScaleMode"),
       videoYScale: document.getElementById("videoYScale"),
       outputWidth: document.getElementById("outputWidth"),
@@ -405,6 +411,7 @@
         title_mask_px: Number(ui.titleMaskPx.value || 0),
         edge_bar_px: Number(ui.edgeBarPx.value || 45),
         content_height_bump_px: Number(ui.contentHeightBumpPx.value || 0),
+        content_max_height_px: Number(ui.contentMaxHeightPx.value || 0),
         video_y_scale: Number(ui.videoYScale.value || 2.08),
         y_scale_mode: ui.yScaleMode.value || "letterbox",
         interval_min: Number(ui.intervalMin.value || 30),
