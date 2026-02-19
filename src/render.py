@@ -12,6 +12,7 @@ from typing import Any, Callable
 
 LOCKED_PRESET = True
 KNOWN_GOOD_REFERENCE = Path("clips_2026_02_17_03_02_36") / "part_1.mp4"
+FILL_TRIM_PX = 30
 
 
 @dataclass(frozen=True)
@@ -373,7 +374,7 @@ def _compute_y_scale_debug(
     fit_width = float(output_width)
     raw_fit_height = source_height * fit_scale
     fit_height = max(2.0, float(int(math.floor(raw_fit_height / 2.0) * 2)))
-    required_fill_scale = output_height / fit_height if fit_height > 0 else 1.0
+    required_fill_scale = (output_height + (2 * FILL_TRIM_PX)) / fit_height if fit_height > 0 else 1.0
     if y_scale_mode == "fill":
         effective_y_scale = max(video_y_scale, required_fill_scale)
     elif y_scale_mode == "letterbox":
@@ -668,13 +669,21 @@ def build_video_filter(
     if effective_y_scale is not None:
         scale_factor_expr = f"{float(effective_y_scale):g}"
     elif y_scale_mode == "fill":
-        scale_factor_expr = f"max({safe_video_y_scale:g}\\,{output_height}/ih)"
+        scale_factor_expr = f"max({safe_video_y_scale:g}\\,{output_height + (2 * FILL_TRIM_PX)}/ih)"
     else:
         scale_factor_expr = f"{safe_video_y_scale:g}"
     filters.append(f"scale=iw:trunc(ih*{scale_factor_expr}/2)*2")
-    filters.append(
-        f"crop={output_width}:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2"
-    )
+    if y_scale_mode == "fill":
+        filters.append(
+            f"crop={output_width}:min(ih\\,{output_height + (2 * FILL_TRIM_PX)}):0:(ih-min(ih\\,{output_height + (2 * FILL_TRIM_PX)}))/2"
+        )
+        filters.append(
+            f"crop={output_width}:{output_height}:0:{FILL_TRIM_PX}"
+        )
+    else:
+        filters.append(
+            f"crop={output_width}:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2"
+        )
     filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2")
     if safe_edge_bar_px > 0:
         filters.append(f"drawbox=x=0:y=0:w=iw:h={safe_edge_bar_px}:color=black@1.0:t=fill")
