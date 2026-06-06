@@ -11,6 +11,20 @@ from .pipeline import (
 )
 from .tiktok.oauth import build_authorize_url
 
+PART_LABEL_POSITIONS = [
+    "top-left",
+    "top-center",
+    "top-right",
+    "middle-left",
+    "middle-center",
+    "middle-right",
+    "bottom-left",
+    "bottom-center",
+    "bottom-right",
+    "custom",
+    "custom-drag",
+]
+
 
 def cmd_serve(args: argparse.Namespace) -> int:
     try:
@@ -29,6 +43,8 @@ def cmd_process(args: argparse.Namespace) -> int:
         channel=args.channel,
         interval_min=args.interval_min,
         part_seconds=args.part_seconds,
+        split_mode=args.split_mode,
+        scene_threshold=args.scene_threshold,
         crop_top_px=args.crop_top_px,
         title_mask_px=args.title_mask_px,
         edge_bar_px=args.edge_bar_px,
@@ -40,7 +56,14 @@ def cmd_process(args: argparse.Namespace) -> int:
         output_height=args.output_height,
         render_preset=args.render_preset,
         part_label_position=args.part_label_position,
+        label_x_pct=args.label_x_pct,
+        label_y_pct=args.label_y_pct,
         no_part_overlay=args.no_part_overlay,
+        chapter_title_position=args.chapter_title_position,
+        playback_speed=args.playback_speed,
+        subtitles_enabled=args.subtitles_enabled,
+        subtitle_style=args.subtitle_style,
+        subtitle_language=args.subtitle_language,
         cuts_path=args.cuts,
         channels_config=args.channels_config.resolve(),
         log=lambda message: print(f"[process] {message}"),
@@ -87,6 +110,12 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument("--channel", type=str, required=True)
     process_parser.add_argument("--interval-min", type=int, default=30)
     process_parser.add_argument("--part-seconds", type=int, default=70)
+    process_parser.add_argument(
+        "--split-mode",
+        choices=["duration", "parts", "manual", "ai", "scene", "chapters"],
+        default="duration",
+    )
+    process_parser.add_argument("--scene-threshold", type=float, default=27.0)
     process_parser.add_argument("--crop-top-px", type=int, default=0)
     process_parser.add_argument("--title-mask-px", type=int, default=0)
     process_parser.add_argument("--edge-bar-px", type=int, default=45)
@@ -94,7 +123,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--content-height-bump-px",
         type=int,
         default=0,
-        help="Zoom-mode only: increase content height in pixels before center pad",
+        help="Increase fitted video height in pixels before center pad/crop",
     )
     process_parser.add_argument(
         "--content-max-height-px",
@@ -110,7 +139,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     process_parser.add_argument(
         "--y-scale-mode",
-        choices=["letterbox", "zoom", "manual", "fill"],
+        choices=["letterbox", "zoom", "manual", "fill", "autozoom"],
         default="letterbox",
     )
     process_parser.add_argument("--render-preset", type=str, default="legacy")
@@ -118,10 +147,38 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument("--output-height", type=int, default=1920)
     process_parser.add_argument(
         "--part-label-position",
-        choices=["top-left", "top-center"],
+        choices=PART_LABEL_POSITIONS,
         default="top-center",
     )
+    process_parser.add_argument(
+        "--label-x-pct",
+        type=float,
+        default=0.5,
+    )
+    process_parser.add_argument(
+        "--label-y-pct",
+        type=float,
+        default=0.05,
+    )
     process_parser.add_argument("--no-part-overlay", action="store_true")
+    process_parser.add_argument(
+        "--chapter-title-position",
+        choices=["top", "bottom"],
+        default="top",
+    )
+    process_parser.add_argument(
+        "--playback-speed",
+        type=float,
+        choices=[1.0, 1.2, 1.5, 1.75, 2.0],
+        default=1.0,
+    )
+    process_parser.add_argument("--subtitles-enabled", action="store_true")
+    process_parser.add_argument(
+        "--subtitle-style",
+        choices=["hormozi", "standard", "minimal"],
+        default="hormozi",
+    )
+    process_parser.add_argument("--subtitle-language", type=str, default=None)
     process_parser.add_argument("--cuts", type=Path, default=None)
     process_parser.add_argument(
         "--channels-config",

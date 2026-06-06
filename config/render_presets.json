@@ -1,0 +1,15 @@
+[
+  {
+    "name": "TikTok Default",
+    "render_mode": "autozoom",
+    "y_scale_mode": "autozoom",
+    "playback_speed": 1.0,
+    "subtitle_style": "hormozi",
+    "subtitles_enabled": true,
+    "chapter_title_position": "top",
+    "video_style_scale": 50,
+    "edge_bar_px": 45,
+    "output_width": 1080,
+    "output_height": 1920
+  }
+]

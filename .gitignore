@@ -1,40 +1,53 @@
-# Raw videos / downloads / uploads (local-only)
-downloads/**
-uploads/**
-clips_*/**
-smoke_*/
-smoke_*/**
-*.mp4
-*.webm
-*.mov
-*.mkv
-
-# Keep empty scaffold folders in repo
-!uploads/
-uploads/*
-!uploads/.gitkeep
-
-!downloads/
-downloads/*
-!downloads/.gitkeep
-
-# Render outputs / job folders
-outputs/**
-!outputs/
-outputs/*
-!outputs/.gitkeep
-
-# Generated reproducibility artifacts (local-only)
-*.render.cmd
-*.ffmpeg.txt
-render_manifest.json
-status.json
-
-# Python caches
+# Python
+.venv/
+venv/
 __pycache__/
 *.pyc
 
-# Secrets / env
-.secrets/
+# Environment
 .env
 .env.*
+
+# Downloads
+downloads/
+cache/
+temp/
+tmp/
+
+# Rendered videos
+outputs/
+renders/
+exports/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# FFmpeg temp files
+*.ts
+*.part
+
+# Generated metadata
+*.srt
+*.vtt
+*.ass
+
+# Local database
+*.db
+*.sqlite
+*.sqlite3
+
+# Node
+node_modules/
+
+# Build
+dist/
+build/

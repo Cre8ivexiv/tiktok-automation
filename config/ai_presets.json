@@ -1,0 +1,44 @@
+[
+  {
+    "id": "story_clips",
+    "name": "Story Clips",
+    "description": "Break a long video into short story-driven clips.",
+    "system_prompt": "You are an expert short-form video editor. Analyze the supplied video context and produce bingeable story clips. Prioritize emotional turns, discoveries, conflict, failures, victories, and clear standalone context. Return only JSON when asked for JSON.",
+    "expected_output_schema_hint": "{ \"clips\": [{ \"start\": \"HH:MM:SS\", \"end\": \"HH:MM:SS\", \"title\": \"\", \"caption_text\": \"\", \"summary\": \"\", \"clip_type\": \"story_progression\" }], \"import_ready_for_quickclips\": true }"
+  },
+  {
+    "id": "day_by_day_recap",
+    "name": "Day-by-Day Recap",
+    "description": "Split videos by days, progression milestones, and major story changes.",
+    "system_prompt": "Analyze the video and split it into day/progression clips. Cover the whole timeline without giant clips. Each clip should represent one day, milestone, emotional shift, discovery, challenge, failure, or victory. Return only JSON. Each clip must include start, end, title, caption_text, summary, and clip_type.",
+    "expected_output_schema_hint": "{ \"clips\": [{ \"start\": \"00:00:00\", \"end\": \"00:01:10\", \"title\": \"Day 1 Changed Everything\", \"caption_text\": \"Day 1 Changed Everything\", \"summary\": \"\", \"clip_type\": \"story_progression\", \"mood\": \"tense\" }], \"import_ready_for_quickclips\": true }"
+  },
+  {
+    "id": "challenge_by_challenge",
+    "name": "Challenge-by-Challenge",
+    "description": "Find every distinct challenge, task, mission, or activity.",
+    "system_prompt": "Split the video into every distinct challenge, task, mission, or activity. Do not skip major challenges. Cover the full timeline. Prefer 30 seconds to 2 minutes per clip when possible. Return only JSON with clips containing start, end, title, caption_text, summary, and clip_type.",
+    "expected_output_schema_hint": "{ \"clips\": [{ \"start\": \"HH:MM:SS\", \"end\": \"HH:MM:SS\", \"title\": \"\", \"caption_text\": \"\", \"summary\": \"\", \"clip_type\": \"challenge\" }], \"import_ready_for_quickclips\": true }"
+  },
+  {
+    "id": "viral_shorts_captions",
+    "name": "Viral Shorts Captions",
+    "description": "Generate stronger hooks, titles, and caption cards for existing cuts.",
+    "system_prompt": "Rewrite clip titles and on-screen caption_text for short-form platforms. Make captions punchy, specific, and understandable without context. Preserve existing timestamps if provided. Return JSON that QuickClips can import.",
+    "expected_output_schema_hint": "{ \"clips\": [{ \"start\": \"HH:MM:SS\", \"end\": \"HH:MM:SS\", \"title\": \"\", \"caption_text\": \"\", \"summary\": \"\", \"clip_type\": \"story_progression\" }], \"import_ready_for_quickclips\": true }"
+  },
+  {
+    "id": "reaction_layout_tracker",
+    "name": "Reaction Layout Tracker",
+    "description": "Detect facecam layout changes and output reaction timeline JSON.",
+    "system_prompt": "Track facecam or streamer layout changes over time. Return reaction_timeline rows with start, end, layout_type, facecam_position, description, and approximate crop hints when visible. This is for layout planning only, not rendering.",
+    "expected_output_schema_hint": "{ \"reaction_timeline\": [{ \"start\": \"HH:MM:SS\", \"end\": \"HH:MM:SS\", \"layout_type\": \"picture_in_picture\", \"facecam_position\": \"top_right\", \"description\": \"\", \"approx_crop_percent\": { \"x\": 65, \"y\": 5, \"width\": 30, \"height\": 30 } }] }"
+  },
+  {
+    "id": "youtube_chapters_cleanup",
+    "name": "YouTube Chapters Cleanup",
+    "description": "Rewrite raw YouTube chapters into stronger clip titles and captions.",
+    "system_prompt": "Take raw YouTube chapters or rough timestamp notes and rewrite them into better short-form clip titles, caption_text, and summaries. Keep timestamps accurate. Return only QuickClips import JSON.",
+    "expected_output_schema_hint": "{ \"clips\": [{ \"start\": \"HH:MM:SS\", \"end\": \"HH:MM:SS\", \"title\": \"\", \"caption_text\": \"\", \"summary\": \"\", \"clip_type\": \"story_progression\" }], \"import_ready_for_quickclips\": true }"
+  }
+]

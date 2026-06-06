@@ -1,152 +1,266 @@
-# TikTok Scheduler Uploader
+# Quick Clips Pipeline
 
-Demo-ready pipeline with:
-- URL/local input processing (`download -> split -> render`)
-- Web UI for app-review screen recording
-- TikTok Login Kit OAuth connect flow
-- Draft upload flow using TikTok Content Posting API helpers
+A TikTok video clipping and scheduling bot. Download or supply a source video, split it into vertical short-form parts, apply overlays, and schedule/upload drafts to TikTok.
 
-## What The Pipeline Does
-- Splits source into sequential parts of `70` seconds by default (last part kept even if shorter).
-- Renders each part with FFmpeg:
-  - crops top using `crop_top_px` (to remove burned-in title text)
-  - scales/pads to `1080x1920`
-  - overlays only `Part X` (or disables with `--no-part-overlay`)
-- Caption format per part:
-  - `{TITLE} (Part X) #partx #fyp #animevideos #anime #movie #manhwa #animerecap #animeedits #isekaianime #animeedit #recap #animerecommendations`
-  - `#partx` is lowercase and matches part number (`#part1`, `#part2`, ...)
-- Title is in caption only, not burned into the video.
+---
 
 ## Requirements
-- Python 3.10+
-- FFmpeg + ffprobe on PATH
-- `yt-dlp` (URL input)
-- FastAPI + Uvicorn (web server)
 
-Install:
-```powershell
-python -m venv venv
-.\venv\Scripts\activate
-pip install -U fastapi uvicorn yt-dlp
+| Dependency | Notes |
+|---|---|
+| Python 3.10+ | Tested on 3.11/3.12 |
+| [FFmpeg](https://ffmpeg.org/download.html) | Must be on `PATH`. Needs `drawtext`, `pad`, `crop` filters. |
+| [ffprobe](https://ffmpeg.org/download.html) | Ships with FFmpeg. Must be on `PATH`. |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Only needed when passing a YouTube URL as input. |
+
+Install Python packages:
+
+```bash
+pip install fastapi uvicorn yt-dlp scenedetect[opencv]
 ```
 
-## Project Structure
-```text
-src/
-  pipeline.py
-  download.py
-  render.py
-  captions.py
-  cli.py
-  web/
-    app.py
-    jobs.py
-    index.html
-  tiktok/
-    oauth.py
-    posting.py
-config/
-  channels.json
-uploads/
-  tiktok/
-    anime recaps/
+Or if a full `requirements.txt` is present:
+
+```bash
+pip install -r requirements.txt
 ```
 
-## Web UI (Demo Flow)
-Start server:
-```powershell
-python -m src.cli serve --host 127.0.0.1 --port 8080
+---
+
+## Development Setup
+
+Downloads are stored locally in `downloads/`.
+Rendered clips are stored locally in `outputs/`.
+
+These folders are intentionally excluded from Git because they contain generated media, cached source files, and job output. Create your own `.env` file locally for secrets and machine-specific settings; do not commit it.
+
+---
+
+## Project layout
+
+```
+quick clips/
+├── config/
+│   ├── channels.json          # Channel definitions (name → account_id, etc.)
+│   └── example_cuts.json      # Example manual cuts file
+├── src/
+│   ├── cli.py                 # CLI entry point (serve / process / upload / auth-start)
+│   ├── main.py                # Alternate CLI (render / process / schedule / run-folder)
+│   ├── pipeline.py            # process_video_job() — main orchestration
+│   ├── render.py              # Segment detection, FFmpeg filter building, render_parts()
+│   ├── download.py            # yt-dlp wrapper + local file resolver
+│   ├── captions.py            # Caption/title builder
+│   └── web/
+│       ├── app.py             # FastAPI web backend
+│       ├── index.html         # Browser UI
+│       └── jobs.py            # In-memory job store
+├── outputs/                   # Rendered parts land here (auto-created)
+├── downloads/                 # Downloaded source videos (auto-created)
+├── smoke_test.py              # Quick sanity tests (no pytest needed)
+├── python.py                  # Legacy standalone script (NVENC / yt-dlp)
+└── requirements.txt
 ```
 
-Open:
-- `http://127.0.0.1:8080`
+---
 
-UI flow:
-1. Paste URL + Title + Channel.
-2. Click **Process Video**.
-3. Click **Connect TikTok**.
-4. Click **Upload Drafts**.
+## Quickstart — Web UI (recommended)
 
-UI routes:
-- `GET /`
-- `POST /api/process`
-- `GET /api/status/{job_id}`
-- `GET /api/me`
-- `GET /auth/start`
-- `GET /auth/callback`
-- `POST /api/upload`
+**1. Set up your channel config**
 
-## CLI Wrapper
-Serve web app:
-```powershell
-python -m src.cli serve --host 127.0.0.1 --port 8080
-```
+Edit `config/channels.json`. Minimum shape:
 
-Process:
-```powershell
-python -m src.cli process --url "https://www.youtube.com/watch?v=..." --title "Solo Leveling Recap" --channel "anime recaps"
-```
-
-Upload drafts:
-```powershell
-python -m src.cli upload --job-id "YOUR_JOB_ID" --title "Solo Leveling Recap" --channel "anime recaps"
-```
-
-Print OAuth authorize URL:
-```powershell
-python -m src.cli auth-start
-```
-
-## OAuth / Token Storage
-- OAuth helper: `src/tiktok/oauth.py`
-- Tokens file: `.secrets/tiktok_tokens.json`
-- `.secrets/` is ignored by `.gitignore`
-
-Configure TikTok credentials using env vars or `.secrets/tiktok_oauth.json`:
-- `TIKTOK_CLIENT_KEY`
-- `TIKTOK_CLIENT_SECRET`
-- `TIKTOK_REDIRECT_URI` (default `http://127.0.0.1:8080/auth/callback`)
-- optional `TIKTOK_SCOPES` (default `user.info.basic,video.upload`)
-
-Example `.secrets/tiktok_oauth.json`:
 ```json
 {
-  "client_key": "YOUR_CLIENT_KEY",
-  "client_secret": "YOUR_CLIENT_SECRET",
-  "redirect_uri": "http://127.0.0.1:8080/auth/callback",
-  "scopes": "user.info.basic,video.upload"
+  "channels": {
+    "my channel": {
+      "account_id": "123456789"
+    }
+  }
 }
 ```
 
-## Draft Upload Notes
-- Upload module: `src/tiktok/posting.py`
-- Uploads are attempted in part order.
-- `interval_min` is used to compute intended schedule timestamps and saved in `status.json`.
-- If API behavior differs by app setup, adjust endpoint env var:
-  - `TIKTOK_VIDEO_UPLOAD_INIT_URL`
-- Existing scheduler module (`src/scheduler/mock.py`) is still mock-only and does not post to TikTok.
+**2. Start the server**
 
-## Output + Status
-Each process job writes to:
-- `outputs/<channel>/<job_id>/part_1.mp4`, `part_2.mp4`, ...
-- `outputs/<channel>/<job_id>/status.json`
+```bash
+# From the project root (the "quick clips" folder)
+python -m src.cli serve
+```
 
-`status.json` includes:
-- source path
-- rendered parts
-- upload plan timestamps
-- upload responses
+Server starts at **http://127.0.0.1:8080** by default.
 
-## Demo Checklist (for App Review Recording)
-1. Run server: `python -m src.cli serve --host 127.0.0.1 --port 8080`
-2. Open UI and paste URL + title.
-3. Click **Process Video** and show live logs + generated parts.
-4. Click **Connect TikTok** and complete OAuth consent.
-5. Return to UI and click **Upload Drafts**.
-6. Show upload log updates and resulting `status.json`.
+Optional flags:
+```bash
+python -m src.cli serve --host 0.0.0.0 --port 9000 --reload
+```
 
-## Repo Hygiene
-- Videos are local-only and should not be committed.
-- Put source videos under `uploads/...` or `downloads/...` as needed by your workflow.
-- Rendered outputs go under `outputs/...`.
-- Secrets belong in `.secrets/` (and `.env*`) and are never committed.
+**3. Open the UI**
+
+Go to [http://127.0.0.1:8080](http://127.0.0.1:8080) in your browser.
+
+Fill in the form and click **Process**. The job runs in the background and the UI polls for progress.
+
+---
+
+## Quickstart — Command Line
+
+### Render only (no scheduling)
+
+```bash
+python -m src.main render \
+  --input "C:/path/to/video.mp4" \
+  --out "C:/path/to/output_dir" \
+  --title "My Video" \
+  --part-seconds 70
+```
+
+### Process + schedule (full pipeline)
+
+```bash
+python -m src.cli process \
+  --url "https://youtube.com/watch?v=..." \
+  --title "Solo Leveling Recap" \
+  --channel "my channel"
+```
+
+Or with a local file:
+
+```bash
+python -m src.cli process \
+  --url "C:/path/to/video.mp4" \
+  --title "Solo Leveling Recap" \
+  --channel "my channel"
+```
+
+### Upload already-rendered parts to TikTok
+
+```bash
+python -m src.cli upload \
+  --job-id "20260330_120000_my_channel_abc123" \
+  --title "Solo Leveling Recap" \
+  --channel "my channel"
+```
+
+---
+
+## Split Modes
+
+The **Split Mode** field (web UI) or `--split-mode` flag controls how the source video is segmented.
+
+| Mode | Behaviour |
+|---|---|
+| `duration` | Auto-split by fixed seconds (`part_seconds`, default 70s) |
+| `parts` | Same as duration (fixed-length parts) |
+| `manual` | Load cut points from a `cuts.json` file (pass via `--cuts`) |
+| `ai` | AI-assisted cut detection (future / placeholder) |
+| `scene` | **PySceneDetect** — detects scene changes automatically |
+
+### Scene Detection (`scene` mode)
+
+Select **Scene Detection (Auto)** in the UI. Adjust the **Scene Sensitivity** slider:
+
+- **Lower value** = more sensitive = more cuts (e.g. `15`)
+- **Higher value** = less sensitive = fewer cuts (e.g. `40`)
+- Default: `27`
+
+Via CLI (not yet wired to `src.cli` — use the web UI or call `process_video_job()` directly):
+
+```python
+from src.pipeline import process_video_job
+
+process_video_job(
+    input_value="video.mp4",
+    title="My Video",
+    channel="my channel",
+    split_mode="scene",
+    scene_threshold=27.0,
+)
+```
+
+---
+
+## Manual Cuts File (`cuts.json`)
+
+Pass a `cuts.json` to override auto-splitting entirely. Example:
+
+```json
+{
+  "parts": [
+    { "start": "0:00", "end": "1:10" },
+    { "start": "1:10", "end": "2:30" },
+    { "start": "2:30", "end": "3:45" }
+  ],
+  "crop_top_px": 50,
+  "output_width": 1080,
+  "output_height": 1920
+}
+```
+
+Times can be `"MM:SS"`, `"HH:MM:SS"`, or plain seconds (`90.5`).
+
+---
+
+## Render Modes (`y_scale_mode`)
+
+Controls how the source video is scaled to fill the 9:16 frame.
+
+| Mode | Behaviour |
+|---|---|
+| `letterbox` | Fit width, black bars top/bottom |
+| `zoom` | Zoom in vertically to fill height, centre-crop |
+| `fill` | Scale up to cover full frame (may crop) |
+| `manual` | Apply `video_y_scale` multiplier directly |
+
+---
+
+## TikTok OAuth
+
+```bash
+python -m src.cli auth-start
+```
+
+Prints the TikTok authorization URL. Open it in a browser, authorize, and the callback will save tokens locally.
+
+---
+
+## Smoke Test
+
+Quick sanity check — no test framework needed:
+
+```bash
+python smoke_test.py
+```
+
+- `test_filter_string()` — verifies the FFmpeg filter chain builds correctly.
+- `run_render_test()` — renders a 3-second clip from `temp_test.webm` if present.
+- `test_scene_detection()` — runs PySceneDetect on `temp_test.webm` if present and prints detected scenes.
+
+---
+
+## Outputs
+
+Each job writes to `outputs/<channel>/<job_id>/`:
+
+```
+outputs/
+└── my channel/
+    └── 20260330_120000_my_channel_abc123/
+        ├── part_1.mp4
+        ├── part_2.mp4
+        ├── ...
+        ├── status.json          # Full job record
+        └── render_manifest.json # FFmpeg commands used
+```
+
+---
+
+## Common issues
+
+**`ffmpeg not found`** — Install FFmpeg and make sure it is on your system `PATH`.
+
+**`No module named 'scenedetect'`** — Run `pip install scenedetect[opencv]`.
+
+**`Channel 'x' not found`** — Add the channel to `config/channels.json`.
+
+**`yt-dlp not found`** — Install with `pip install yt-dlp` (only needed for YouTube URLs).
+
+**Port already in use** — Pass a different port: `python -m src.cli serve --port 9000`.

@@ -23,7 +23,6 @@ import shlex
 import shutil
 import subprocess
 import tempfile
-import textwrap
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -125,34 +124,27 @@ def format_hhmmss_from_seconds(seconds: int) -> str:
 
 
 def download_with_ytdlp(url: str, work_dir: Path, test_first_seconds: int) -> tuple[Path, str]:
-    title_cmd = ["yt-dlp", "--no-warnings", "--get-title", url]
+    title_cmd = ["yt-dlp", "--get-title", url]
     try:
         title_result = subprocess.run(
             title_cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
         )
     except FileNotFoundError as exc:
         raise RuntimeError("yt-dlp is not installed or not found in PATH.") from exc
 
     if title_result.returncode != 0:
-        title_output = "\n".join(
-            part for part in [title_result.stdout, title_result.stderr] if part
-        ).strip()
         raise RuntimeError(
-            f"yt-dlp title fetch failed ({title_result.returncode}):\n{title_output}"
+            f"yt-dlp title fetch failed ({title_result.returncode}):\n{title_result.stdout}"
         )
 
-    title_string = title_result.stdout.strip()
-    title_string = " ".join(title_string.splitlines()).strip()
-    if not title_string:
-        title_string = "Untitled"
+    title_string = title_result.stdout.replace("\n", " ").strip()
 
     output_template = work_dir / "source_merged.%(ext)s"
     download_cmd = [
         "yt-dlp",
-        "--no-warnings",
         "-f",
         "bv*+ba/b",
         "--merge-output-format",
@@ -193,7 +185,6 @@ def download_with_ytdlp(url: str, work_dir: Path, test_first_seconds: int) -> tu
 def escape_filter_value(value: str) -> str:
     return (
         value.replace("\\", "\\\\")
-        .replace("\n", r"\n")
         .replace(":", r"\:")
         .replace("'", r"\'")
         .replace(",", r"\,")
@@ -201,35 +192,6 @@ def escape_filter_value(value: str) -> str:
         .replace("]", r"\]")
         .replace("%", r"\%")
     )
-
-
-def wrap_title(text: str, max_chars: int, max_lines: int) -> str:
-    clean = " ".join(text.split())
-    if not clean:
-        return "Untitled"
-
-    wrapped = textwrap.wrap(
-        clean,
-        width=max(1, max_chars),
-        break_long_words=True,
-        break_on_hyphens=False,
-    )
-    if not wrapped:
-        return "Untitled"
-
-    if len(wrapped) > max_lines:
-        wrapped = wrapped[:max_lines]
-        last = wrapped[-1].rstrip()
-        if len(last) >= max_chars:
-            last = last[: max(1, max_chars - 1)].rstrip()
-        wrapped[-1] = f"{last}\u2026"
-
-    return "\n".join(wrapped)
-
-
-def write_title_file(path: Path, title_text: str) -> None:
-    with path.open("w", encoding="utf-8", newline="\n") as f:
-        f.write(title_text)
 
 
 def filter_path(path: Path) -> str:
@@ -250,20 +212,19 @@ def pick_fontfile() -> Optional[Path]:
 
 def build_video_filter(
     shifted_srt: Optional[Path],
-    title_text_file: Path,
+    main_title: str,
     part_number: int,
     bottom_padding: int,
     out_width: int,
     out_height: int,
     raise_px: int,
-    video_y_scale: float,
     top_bar_height: int,
     title_font_size: int,
     part_font_size: int,
     fontfile: Optional[Path],
     content_scale: float = 1.0,
 ) -> str:
-    title_file = filter_path(title_text_file)
+    title_text = escape_filter_value(main_title)
     part_text = escape_filter_value(f"Part {part_number}")
 
     if fontfile:
@@ -271,21 +232,23 @@ def build_video_filter(
     else:
         font_expr = "font='Sans'"
 
-    safe_video_y_scale = max(video_y_scale, 0.01)
+    safe_content_scale = max(content_scale, 0.01)
+    scaled_w = max(1, int(round(out_width * safe_content_scale)))
+    scaled_h = max(1, int(round(out_height * safe_content_scale)))
 
     # Vertical output pipeline:
-    # 1) Scale source to fixed width (aspect ratio preserved)
-    # 2) Apply vertical-only scaling (width stays fixed)
-    # 3) Pad to out_width x out_height on black canvas (centered)
-    # 4) Shift content upward via overlay on black base
+    # 1) Center-crop input to 9:16
+    # 2) Scale cropped video to content size (out_* * content_scale)
+    # 3) Place on black 9:16 base and shift up by raise_px
     # 4) Burn subtitles and draw title/part labels
     filters = [
         "[0:v]setpts=PTS-STARTPTS,"
-        f"scale={out_width}:-2,"
-        f"scale={out_width}:ih*{safe_video_y_scale}:eval=frame,"
-        f"pad={out_width}:{out_height}:({out_width}-iw)/2:({out_height}-ih)/2:color=black[padded]",
+        "crop=w='if(gte(iw/ih,9/16),ih*9/16,iw)':"
+        "h='if(gte(iw/ih,9/16),ih,iw*16/9)':"
+        "x='(iw-w)/2':y='(ih-h)/2',"
+        f"scale={scaled_w}:{scaled_h}[v]",
         f"color=c=black:size={out_width}x{out_height}[base]",
-        f"[base][padded]overlay=x=0:y=-{raise_px}:shortest=1[composed]",
+        f"[base][v]overlay=x=(W-w)/2:y=(H-h)/2-{raise_px}:shortest=1[shifted]",
     ]
 
     if bottom_padding > 0:
@@ -293,18 +256,17 @@ def build_video_filter(
     else:
         part_y = "h-text_h-40"
 
-    title_input = "composed"
+    title_input = "shifted"
     if shifted_srt is not None:
         subs_path = filter_path(shifted_srt)
-        filters.append(f"[composed]subtitles=filename='{subs_path}'[subbed]")
+        filters.append(f"[shifted]subtitles=filename='{subs_path}'[subbed]")
         title_input = "subbed"
 
     filters.append(
-        f"[{title_input}]drawtext={font_expr}:textfile='{title_file}':"
-        "x=(w-text_w)/2:y=30:"
-        "line_spacing=10:"
-        f"fontsize={title_font_size}:fontcolor=black:"
-        "box=1:boxcolor=white@0.95:boxborderw=26[title]"
+        f"[{title_input}]drawtext={font_expr}:text='{title_text}':"
+        f"x=(w-text_w)/2:y=max(({top_bar_height}-text_h)/2\\,20):"
+        f"fontsize={title_font_size}:fontcolor=white:"
+        "box=1:boxcolor=black@0.65:boxborderw=18[title]"
     )
     filters.append(
         f"[title]drawtext={font_expr}:text='{part_text}':"
@@ -345,16 +307,14 @@ def render_segment(
     ffmpeg_bin: str,
     source_video: Path,
     shifted_srt: Optional[Path],
-    title_text_file: Path,
     output_path: Path,
     segment: Segment,
+    main_title: str,
     part_number: int,
     bottom_padding: int,
     out_width: int,
     out_height: int,
     raise_px: int,
-    video_y_scale: float,
-    content_scale: float,
     top_bar_height: int,
     title_font_size: int,
     part_font_size: int,
@@ -366,14 +326,12 @@ def render_segment(
 
     vf = build_video_filter(
         shifted_srt=shifted_srt,
-        title_text_file=title_text_file,
+        main_title=main_title,
         part_number=part_number,
         bottom_padding=bottom_padding,
         out_width=out_width,
         out_height=out_height,
         raise_px=raise_px,
-        video_y_scale=video_y_scale,
-        content_scale=content_scale,
         top_bar_height=top_bar_height,
         title_font_size=title_font_size,
         part_font_size=part_font_size,
@@ -437,9 +395,13 @@ def main() -> None:
     )
     parser.add_argument("--out-width", type=int, default=1080, help="Final output width in pixels")
     parser.add_argument("--out-height", type=int, default=1920, help="Final output height in pixels")
-    parser.add_argument("--video-y-scale", type=float, default=1.0, help="Vertical stretch factor")
-    parser.add_argument("--content-scale", type=float, default=1.0, help="Scale factor for composed content")
     parser.add_argument("--raise-px", type=int, default=140, help="Move video up by this many pixels")
+    parser.add_argument(
+    "--content-scale",
+    type=float,
+    default=1.0,
+    help="Scale factor for cropped 9:16 content (1.0 = full size, 0.9 = smaller)"
+)
     parser.add_argument(
         "--test-first-seconds",
         type=int,
@@ -448,8 +410,6 @@ def main() -> None:
     )
     parser.add_argument("--top-bar-height", type=int, default=120, help="Top title bar height in pixels")
     parser.add_argument("--title-font-size", type=int, default=52, help="Top title text size")
-    parser.add_argument("--title-max-chars", type=int, default=28, help="Approximate max chars per title line")
-    parser.add_argument("--title-max-lines", type=int, default=2, help="Maximum number of title lines")
     parser.add_argument("--part-font-size", type=int, default=42, help="'Part X' text size")
     parser.add_argument("--ffmpeg-bin", default="ffmpeg", help="FFmpeg executable path/name")
     args = parser.parse_args()
@@ -475,14 +435,6 @@ def main() -> None:
         raise SystemExit("--out-width must be > 0")
     if args.out_height <= 0:
         raise SystemExit("--out-height must be > 0")
-    if args.content_scale <= 0:
-        raise SystemExit("--content-scale must be > 0")
-    if args.video_y_scale <= 0:
-        raise SystemExit("--video-y-scale must be > 0")
-    if args.title_max_chars <= 0:
-        raise SystemExit("--title-max-chars must be > 0")
-    if args.title_max_lines <= 0:
-        raise SystemExit("--title-max-lines must be > 0")
     if args.raise_px < 0:
         raise SystemExit("--raise-px must be >= 0")
     if args.test_first_seconds < 0:
@@ -527,7 +479,7 @@ def main() -> None:
             source_video, main_title = download_with_ytdlp(args.url, temp_dir, args.test_first_seconds)
             print(f"Prepared source video: {source_video}")
 
-        if args.title and args.title.strip():
+        if args.title:
             main_title = args.title
         main_title = " ".join(main_title.splitlines()).strip()
         if not main_title:
@@ -540,10 +492,6 @@ def main() -> None:
                 shifted_srt_path = temp_dir / f"shifted_part_{i}.srt"
                 shifted_srt_path.write_text(srt.compose(shifted_subs), encoding="utf-8")
 
-            wrapped_title = wrap_title(main_title, args.title_max_chars, args.title_max_lines)
-            title_text_path = temp_dir / f"title_part_{i}.txt"
-            write_title_file(title_text_path, wrapped_title)
-
             out_path = args.output_dir / f"part_{i}.mp4"
             print(
                 f"Rendering part {i}: {format_ffmpeg_time(seg.start)} -> "
@@ -553,16 +501,14 @@ def main() -> None:
                 ffmpeg_bin=args.ffmpeg_bin,
                 source_video=source_video,
                 shifted_srt=shifted_srt_path,
-                title_text_file=title_text_path,
                 output_path=out_path,
                 segment=seg,
+                main_title=main_title,
                 part_number=i,
                 bottom_padding=args.bottom_padding,
                 out_width=args.out_width,
                 out_height=args.out_height,
                 raise_px=args.raise_px,
-                video_y_scale=args.video_y_scale,
-                content_scale=args.content_scale,
                 top_bar_height=args.top_bar_height,
                 title_font_size=args.title_font_size,
                 part_font_size=args.part_font_size,
@@ -574,4 +520,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

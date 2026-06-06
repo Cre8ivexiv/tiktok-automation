@@ -1,0 +1,384 @@
+{
+  "created_at": "2026-05-06 05:27:26",
+  "input_source": "C:\\Users\\Ibrahim Timilehin\\Desktop\\quick clips\\temp_test.webm",
+  "output_dir": "C:\\Users\\Ibrahim Timilehin\\Desktop\\quick clips\\smoke_test_offset",
+  "render_preset": "legacy",
+  "render_params": {
+    "crop_top_px": 0,
+    "title_mask_px": 0,
+    "output_width": 1080,
+    "output_height": 1920,
+    "video_y_scale": 2.08,
+    "y_scale_mode": "letterbox",
+    "edge_bar_px": 45,
+    "content_height_bump_px": 0,
+    "content_max_height_px": 0,
+    "zoom_target_height": null,
+    "zoom_base_height": null,
+    "base_height": 606.0,
+    "required_fill_scale": 3.267326732673267,
+    "effective_y_scale": 1.0,
+    "computed_required_fill_scale": 3.267326732673267,
+    "effective_y_scale_used": 1.0,
+    "ih_after_fit": 606.0,
+    "raise_px": null,
+    "bottom_padding": null,
+    "locked_preset": true,
+    "part_overlay_enabled": false,
+    "part_label_position": "top-center",
+    "label_x_pct": 0.5,
+    "label_y_pct": 0.05,
+    "crf": 18,
+    "preset": "slow",
+    "playback_speed": 1.0,
+    "subtitles_enabled": false,
+    "subtitle_style": "hormozi"
+  },
+  "segments": [
+    {
+      "part_number": 1,
+      "start_seconds": 0,
+      "end_seconds": 3.0,
+      "duration_seconds": 3.0,
+      "start_time": "00:00:00.000",
+      "end_time": "00:00:03.000"
+    }
+  ],
+  "resolved_filter_chain": [
+    "scale=1080:-2,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,drawbox=x=0:y=0:w=iw:h=45:color=black@1.0:t=fill,drawbox=x=0:y=ih-45:w=iw:h=45:color=black@1.0:t=fill,setsar=1"
+  ],
+  "tiktok_probe": [
+    {
+      "stream": {
+        "width": 1080,
+        "height": 1920,
+        "sample_aspect_ratio": "1:1",
+        "display_aspect_ratio": "9:16",
+        "pix_fmt": "yuv420p",
+        "codec_name": "h264",
+        "avg_frame_rate": "24000/1001",
+        "color_range": "tv",
+        "color_space": "bt709",
+        "color_transfer": "bt709",
+        "color_primaries": "bt709"
+      },
+      "format": {
+        "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+        "bit_rate": "2707316",
+        "duration": "3.003000"
+      },
+      "filter_diagnostics": {
+        "setsar_1_in_filter_chain": true,
+        "vf_contains_scale_minus2_1920": false,
+        "vf_contains_crop_1080_1920": false,
+        "vf_contains_force_original_aspect_ratio": false,
+        "vf_contains_setsar": true,
+        "vf_contains_scale_minus2_output_height": false,
+        "vf_contains_crop_output_dimensions": false
+      },
+      "risk_flags": []
+    }
+  ],
+  "parts": [
+    {
+      "part_number": 1,
+      "vf": "scale=1080:-2,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,drawbox=x=0:y=0:w=iw:h=45:color=black@1.0:t=fill,drawbox=x=0:y=ih-45:w=iw:h=45:color=black@1.0:t=fill,setsar=1",
+      "ffmpeg_cmd": [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        "temp_test.webm",
+        "-ss",
+        "00:00:00.000",
+        "-t",
+        "00:00:03.000",
+        "-vf",
+        "scale=1080:-2,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,drawbox=x=0:y=0:w=iw:h=45:color=black@1.0:t=fill,drawbox=x=0:y=ih-45:w=iw:h=45:color=black@1.0:t=fill,setsar=1",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "18",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-movflags",
+        "+faststart",
+        "smoke_test_offset\\part_1.mp4"
+      ],
+      "ffmpeg_cmd_shell": "ffmpeg -y -hide_banner -loglevel error -i temp_test.webm -ss 00:00:00.000 -t 00:00:03.000 -vf scale=1080:-2,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,drawbox=x=0:y=0:w=iw:h=45:color=black@1.0:t=fill,drawbox=x=0:y=ih-45:w=iw:h=45:color=black@1.0:t=fill,setsar=1 -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart smoke_test_offset\\part_1.mp4",
+      "ffmpeg_cmd_dump_path": "C:\\Users\\Ibrahim Timilehin\\Desktop\\quick clips\\smoke_test_offset\\part_001.ffmpeg.txt",
+      "ffmpeg_cmd_run_path": "C:\\Users\\Ibrahim Timilehin\\Desktop\\quick clips\\smoke_test_offset\\part_001.render.cmd",
+      "output_path": "C:\\Users\\Ibrahim Timilehin\\Desktop\\quick clips\\smoke_test_offset\\part_1.mp4",
+      "start_time": "00:00:00.000",
+      "end_time": "00:00:03.000",
+      "part_label_position": "top-center",
+      "label_x_pct": 0.5,
+      "label_y_pct": 0.05,
+      "tiktok_probe": {
+        "stream": {
+          "width": 1080,
+          "height": 1920,
+          "sample_aspect_ratio": "1:1",
+          "display_aspect_ratio": "9:16",
+          "pix_fmt": "yuv420p",
+          "codec_name": "h264",
+          "avg_frame_rate": "24000/1001",
+          "color_range": "tv",
+          "color_space": "bt709",
+          "color_transfer": "bt709",
+          "color_primaries": "bt709"
+        },
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "bit_rate": "2707316",
+          "duration": "3.003000"
+        },
+        "filter_diagnostics": {
+          "setsar_1_in_filter_chain": true,
+          "vf_contains_scale_minus2_1920": false,
+          "vf_contains_crop_1080_1920": false,
+          "vf_contains_force_original_aspect_ratio": false,
+          "vf_contains_setsar": true,
+          "vf_contains_scale_minus2_output_height": false,
+          "vf_contains_crop_output_dimensions": false
+        },
+        "risk_flags": []
+      }
+    }
+  ],
+  "ffmpeg_version": "ffmpeg version 8.0.1-full_build-www.gyan.dev Copyright (c) 2000-2025 the FFmpeg developers\nbuilt with gcc 15.2.0 (Rev8, Built by MSYS2 project)\nconfiguration: --enable-gpl --enable-version3 --enable-static --disable-w32threads --disable-autodetect --enable-fontconfig --enable-iconv --enable-gnutls --enable-lcms2 --enable-libxml2 --enable-gmp --enable-bzlib --enable-lzma --enable-libsnappy --enable-zlib --enable-librist --enable-libsrt --enable-libssh --enable-libzmq --enable-avisynth --enable-libbluray --enable-libcaca --enable-libdvdnav --enable-libdvdread --enable-sdl2 --enable-libaribb24 --enable-libaribcaption --enable-libdav1d --enable-libdavs2 --enable-libopenjpeg --enable-libquirc --enable-libuavs3d --enable-libxevd --enable-libzvbi --enable-liboapv --enable-libqrencode --enable-librav1e --enable-libsvtav1 --enable-libvvenc --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxavs2 --enable-libxeve --enable-libxvid --enable-libaom --enable-libjxl --enable-libvpx --enable-mediafoundation --enable-libass --enable-frei0r --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-liblensfun --enable-libvidstab --enable-libvmaf --enable-libzimg --enable-amf --enable-cuda-llvm --enable-cuvid --enable-dxva2 --enable-d3d11va --enable-d3d12va --enable-ffnvcodec --enable-libvpl --enable-nvdec --enable-nvenc --enable-vaapi --enable-libshaderc --enable-vulkan --enable-libplacebo --enable-opencl --enable-libcdio --enable-openal --enable-libgme --enable-libmodplug --enable-libopenmpt --enable-libopencore-amrwb --enable-libmp3lame --enable-libshine --enable-libtheora --enable-libtwolame --enable-libvo-amrwbenc --enable-libcodec2 --enable-libilbc --enable-libgsm --enable-liblc3 --enable-libopencore-amrnb --enable-libopus --enable-libspeex --enable-libvorbis --enable-ladspa --enable-libbs2b --enable-libflite --enable-libmysofa --enable-librubberband --enable-libsoxr --enable-chromaprint --enable-whisper\nlibavutil      60.  8.100 / 60.  8.100\nlibavcodec     62. 11.100 / 62. 11.100\nlibavformat    62.  3.100 / 62.  3.100\nlibavdevice    62.  1.100 / 62.  1.100\nlibavfilter    11.  4.100 / 11.  4.100\nlibswscale      9.  1.100 /  9.  1.100\nlibswresample   6.  1.100 /  6.  1.100\n\nExiting with exit code 0\n",
+  "ffprobe_input": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "codec_long_name": "Alliance for Open Media AV1",
+        "profile": "Main",
+        "codec_type": "video",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "width": 1920,
+        "height": 1080,
+        "coded_width": 1920,
+        "coded_height": 1080,
+        "has_b_frames": 0,
+        "sample_aspect_ratio": "1:1",
+        "display_aspect_ratio": "16:9",
+        "pix_fmt": "yuv420p",
+        "level": 8,
+        "color_range": "tv",
+        "color_space": "bt709",
+        "color_transfer": "bt709",
+        "color_primaries": "bt709",
+        "refs": 1,
+        "r_frame_rate": "24000/1001",
+        "avg_frame_rate": "24000/1001",
+        "time_base": "1/1000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "extradata_size": 20,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "HANDLER_NAME": "ISO Media file produced by Google Inc.",
+          "VENDOR_ID": "[0][0][0][0]",
+          "DURATION": "00:01:00.019000000"
+        }
+      },
+      {
+        "index": 1,
+        "codec_name": "opus",
+        "codec_long_name": "Opus (Opus Interactive Audio Codec)",
+        "codec_type": "audio",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "sample_fmt": "fltp",
+        "sample_rate": "48000",
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bits_per_sample": 0,
+        "initial_padding": 312,
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/1000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "extradata_size": 19,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "eng",
+          "DURATION": "00:01:00.008000000"
+        }
+      }
+    ],
+    "format": {
+      "filename": "temp_test.webm",
+      "nb_streams": 2,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "matroska,webm",
+      "format_long_name": "Matroska / WebM",
+      "start_time": "0.000000",
+      "duration": "60.019000",
+      "size": "9702703",
+      "bit_rate": "1293284",
+      "probe_score": 100,
+      "tags": {
+        "COMPATIBLE_BRANDS": "iso6av01mp41",
+        "MAJOR_BRAND": "dash",
+        "MINOR_VERSION": "0",
+        "ENCODER": "Lavf62.3.100"
+      }
+    }
+  },
+  "y_scale_debug": {
+    "source_width": 1920.0,
+    "source_height": 1080.0,
+    "fit_width": 1080.0,
+    "fit_height": 606.0,
+    "base_width": 1080.0,
+    "base_height": 606.0,
+    "ih_after_fit": 606.0,
+    "required_fill_scale": 3.267326732673267,
+    "computed_required_fill_scale": 3.267326732673267,
+    "video_y_scale_requested": 2.08,
+    "effective_y_scale": 1.0,
+    "effective_y_scale_used": 1.0,
+    "y_scale_mode": "letterbox"
+  },
+  "zoom_debug": null,
+  "known_good_comparison": {
+    "known_good_file": "C:\\Users\\Ibrahim Timilehin\\Desktop\\quick clips\\clips_2026_02_17_03_02_36\\part_1.mp4",
+    "rendered_file": "C:\\Users\\Ibrahim Timilehin\\Desktop\\quick clips\\smoke_test_offset\\part_1.mp4",
+    "known_good_stats": {
+      "codec": "hevc",
+      "resolution": "1080x1920",
+      "sar": "1:1",
+      "dar": "9:16",
+      "fps": "25/1",
+      "bitrate_stream": "6559762",
+      "bitrate_format": "6761837"
+    },
+    "rendered_stats": {
+      "codec": "h264",
+      "resolution": "1080x1920",
+      "sar": "1:1",
+      "dar": "9:16",
+      "fps": "24000/1001",
+      "bitrate_stream": "2502420",
+      "bitrate_format": "2707316"
+    },
+    "short_diff": [
+      "codec: hevc != h264",
+      "resolution: 1080x1920 == 1080x1920",
+      "sar: 1:1 == 1:1",
+      "dar: 9:16 == 9:16",
+      "fps: 25/1 != 24000/1001",
+      "bitrate_stream: 6559762 != 2502420",
+      "bitrate_format: 6761837 != 2707316"
+    ],
+    "known_good_tiktok_probe": {
+      "stream": {
+        "width": 1080,
+        "height": 1920,
+        "sample_aspect_ratio": "1:1",
+        "display_aspect_ratio": "9:16",
+        "pix_fmt": "yuv420p",
+        "codec_name": "hevc",
+        "avg_frame_rate": "25/1",
+        "color_range": "tv",
+        "color_space": "bt709",
+        "color_transfer": null,
+        "color_primaries": null
+      },
+      "format": {
+        "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+        "bit_rate": "6761837",
+        "duration": "60.000000"
+      }
+    },
+    "rendered_tiktok_probe": {
+      "stream": {
+        "width": 1080,
+        "height": 1920,
+        "sample_aspect_ratio": "1:1",
+        "display_aspect_ratio": "9:16",
+        "pix_fmt": "yuv420p",
+        "codec_name": "h264",
+        "avg_frame_rate": "24000/1001",
+        "color_range": "tv",
+        "color_space": "bt709",
+        "color_transfer": "bt709",
+        "color_primaries": "bt709"
+      },
+      "format": {
+        "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+        "bit_rate": "2707316",
+        "duration": "3.003000"
+      }
+    },
+    "tiktok_probe_diff": [
+      "stream.width: 1080 == 1080",
+      "stream.height: 1920 == 1920",
+      "stream.sample_aspect_ratio: 1:1 == 1:1",
+      "stream.display_aspect_ratio: 9:16 == 9:16",
+      "stream.pix_fmt: yuv420p == yuv420p",
+      "stream.codec_name: hevc != h264",
+      "stream.avg_frame_rate: 25/1 != 24000/1001",
+      "stream.color_range: tv == tv",
+      "stream.color_space: bt709 == bt709",
+      "stream.color_transfer: None != bt709",
+      "stream.color_primaries: None != bt709",
+      "format.format_name: mov,mp4,m4a,3gp,3g2,mj2 == mov,mp4,m4a,3gp,3g2,mj2",
+      "format.bit_rate: 6761837 != 2707316",
+      "format.duration: 60.000000 != 3.003000"
+    ]
+  }
+}

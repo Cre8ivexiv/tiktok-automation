@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+yt-dlp[default,curl-cffi]
+google-genai
+scenedetect[opencv]
+python-multipart
+Pillow
+
+# Subtitles
+whisperx
+torch

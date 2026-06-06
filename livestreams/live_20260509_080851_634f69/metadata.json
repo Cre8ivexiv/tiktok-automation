@@ -1,0 +1,30 @@
+{
+  "live_job_id": "live_20260509_080851_634f69",
+  "url": "https://www.twitch.tv/xqc",
+  "start_time": "2026-05-09 08:08:51",
+  "output_dir": "C:\\Users\\Ibrahim Timilehin\\Desktop\\quick clips\\livestreams\\live_20260509_080851_634f69",
+  "output_path": "C:\\Users\\Ibrahim Timilehin\\Desktop\\quick clips\\livestreams\\live_20260509_080851_634f69\\buffer.ts",
+  "process_id": 11932,
+  "status": "stopped",
+  "error": null,
+  "command": [
+    "ffmpeg",
+    "-y",
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-reconnect",
+    "1",
+    "-reconnect_streamed",
+    "1",
+    "-reconnect_delay_max",
+    "5",
+    "-i",
+    "https://euw11.playlist.ttvnw.net/v1/playlist/CuEEIz3TXARS9YC-Mpnbk9Imty9U3xZ7EMxCb5xq4EAeSBoOMfJnd4gfFdROyWm3wrG3iu_1MgrWPC4x1xRxbfPf0_TAy8VrogI7Uhqz3z3j610cJlFtTucpEB5KDxLSpqaTCiNDTC_BR7YsIPJ6gi_VkFIQ1NTj8YW3UFH0AVfpOHLfGVkKxFIyTPeYetkXxkaux5NobwC44U98inPBhEEBi10PYbgM9IEP8O8tF5JpoJtHpc62w56HDFr_407pBD8l_WRYRb28rvnj9tSGrLetWSHuar0wx7jYGMSKXYfJKiQ-aQQyboIyjhEUckAT0mMjXMZwEtXT0sxixFgejw13wrNiSLcqg1ZvdyytK-akQyx4v6OCFnQ1MJpT4dfo9TqkNFkSvJZa7t-o-_n4VCSi7uuvggQm-xHRmZyQU9-eVBurPwdFEffi9osX2h4YZah5O__kVxBVK6Yq3Hq2tUGcNU2dUQXNytAVVLvrW7KjvDAcHi-a3eY51NefOUbQJhFoqdr17l2AyfOoe3VhsWSAA1d-OOikng4gkfabAFQzazC-M0YfWemKNY5dZ1rPG1ReL_xq_jjiAlrRN-B7Q6aYMAFNimYqb61p352Qt0KfW2bWb0_JzVz5mOqSaUqLVxR9-A2hl5hrJVxH_X1aAzi__XSnTihlQFaFz7KL66Q66EYT1-RAzdBN24Vg7v3Dyp25NhBkS35iRVOBA7q4Od4z4PZT6sv-X0zBuSSoHSlKjlSlS1J-tDBi65Z42hJXSqQmE3B40QRXcPUOGSNmzslCg73S_IhAp3HDirMZlEzMFJo0GgzS9lVTjqgvbSORfSQgASoJZXUtd2VzdC0yMIsP.m3u8",
+    "-c",
+    "copy",
+    "-f",
+    "mpegts",
+    "C:\\Users\\Ibrahim Timilehin\\Desktop\\quick clips\\livestreams\\live_20260509_080851_634f69\\buffer.ts"
+  ]
+}

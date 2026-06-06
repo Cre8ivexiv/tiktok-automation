@@ -1,0 +1,2 @@
+@echo off
+ffmpeg -y -hide_banner -loglevel error -i temp_test.webm -ss 00:00:00.000 -t 00:00:03.000 -vf scale=1080:-2,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,drawbox=x=0:y=0:w=iw:h=45:color=black@1.0:t=fill,drawbox=x=0:y=ih-45:w=iw:h=45:color=black@1.0:t=fill,setsar=1 -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart smoke_test_offset\part_1.mp4

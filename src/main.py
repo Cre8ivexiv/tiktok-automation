@@ -22,6 +22,19 @@ from .scheduler.mock import MockScheduler
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CHANNELS_CONFIG = PROJECT_ROOT / "config" / "channels.json"
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".m4v"}
+PART_LABEL_POSITIONS = [
+    "top-left",
+    "top-center",
+    "top-right",
+    "middle-left",
+    "middle-center",
+    "middle-right",
+    "bottom-left",
+    "bottom-center",
+    "bottom-right",
+    "custom",
+    "custom-drag",
+]
 
 
 def load_channels_map(config_path: Path) -> dict[str, dict[str, Any]]:
@@ -174,12 +187,14 @@ def render_pipeline(
     output_height: int,
     part_overlay_enabled: bool,
     part_label_position: str,
+    label_x_pct: float,
+    label_y_pct: float,
     ffmpeg_bin: str,
     ffprobe_bin: str,
     crf: int,
     preset: str,
 ) -> tuple[list[RenderedPart], dict[str, Any]]:
-    segments, cuts_overrides = resolve_segments(
+    segments, cuts_overrides, _ = resolve_segments(
         input_video=input_video,
         part_seconds=part_seconds,
         cuts_path=cuts_path,
@@ -205,6 +220,8 @@ def render_pipeline(
         output_height=effective_out_h,
         part_overlay_enabled=part_overlay_enabled,
         part_label_position=part_label_position,
+        label_x_pct=label_x_pct,
+        label_y_pct=label_y_pct,
         ffmpeg_bin=ffmpeg_bin,
         ffprobe_bin=ffprobe_bin,
         crf=crf,
@@ -221,11 +238,14 @@ def render_pipeline(
         "render_preset": render_preset,
         "output_width": effective_out_w,
         "output_height": effective_out_h,
+        "part_label_position": part_label_position,
+        "label_x_pct": label_x_pct,
+        "label_y_pct": label_y_pct,
     }
 
 
 def cmd_render(args: argparse.Namespace) -> int:
-    input_video, was_downloaded = resolve_input_video(
+    input_video, was_downloaded, _source_info = resolve_input_video(
         input_value=args.input,
         downloads_root=(PROJECT_ROOT / "downloads"),
     )
@@ -249,6 +269,8 @@ def cmd_render(args: argparse.Namespace) -> int:
         output_height=args.output_height,
         part_overlay_enabled=not args.no_part_overlay,
         part_label_position=args.part_label_position,
+        label_x_pct=args.label_x_pct,
+        label_y_pct=args.label_y_pct,
         ffmpeg_bin=args.ffmpeg_bin,
         ffprobe_bin=args.ffprobe_bin,
         crf=args.crf,
@@ -321,7 +343,7 @@ def cmd_process(args: argparse.Namespace) -> int:
     account_id = resolve_account_id(channel_payload, args.channel)
     start_time = parse_start_time(args.start_time)
 
-    input_video, was_downloaded = resolve_input_video(
+    input_video, was_downloaded, _source_info = resolve_input_video(
         input_value=args.input,
         downloads_root=(PROJECT_ROOT / "downloads"),
     )
@@ -345,6 +367,8 @@ def cmd_process(args: argparse.Namespace) -> int:
         output_height=args.output_height,
         part_overlay_enabled=not args.no_part_overlay,
         part_label_position=args.part_label_position,
+        label_x_pct=args.label_x_pct,
+        label_y_pct=args.label_y_pct,
         ffmpeg_bin=args.ffmpeg_bin,
         ffprobe_bin=args.ffprobe_bin,
         crf=args.crf,
@@ -442,6 +466,8 @@ def cmd_run_folder(args: argparse.Namespace) -> int:
             output_height=args.output_height,
             part_overlay_enabled=not args.no_part_overlay,
             part_label_position=args.part_label_position,
+            label_x_pct=args.label_x_pct,
+            label_y_pct=args.label_y_pct,
             ffmpeg_bin=args.ffmpeg_bin,
             ffprobe_bin=args.ffprobe_bin,
             crf=args.crf,
@@ -541,9 +567,21 @@ def build_parser() -> argparse.ArgumentParser:
     render_parser.add_argument("--output-height", type=int, default=1920, help="Output height")
     render_parser.add_argument(
         "--part-label-position",
-        choices=["top-left", "top-center"],
+        choices=PART_LABEL_POSITIONS,
         default="top-center",
         help="Part label position",
+    )
+    render_parser.add_argument(
+        "--label-x-pct",
+        type=float,
+        default=0.5,
+        help="Normalized X position for custom/custom-drag label mode (0.0-1.0)",
+    )
+    render_parser.add_argument(
+        "--label-y-pct",
+        type=float,
+        default=0.05,
+        help="Normalized Y position for custom/custom-drag label mode (0.0-1.0)",
     )
     render_parser.add_argument(
         "--no-part-overlay",
@@ -630,9 +668,21 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument("--output-height", type=int, default=1920, help="Output height")
     process_parser.add_argument(
         "--part-label-position",
-        choices=["top-left", "top-center"],
+        choices=PART_LABEL_POSITIONS,
         default="top-center",
         help="Part label position",
+    )
+    process_parser.add_argument(
+        "--label-x-pct",
+        type=float,
+        default=0.5,
+        help="Normalized X position for custom/custom-drag label mode (0.0-1.0)",
+    )
+    process_parser.add_argument(
+        "--label-y-pct",
+        type=float,
+        default=0.05,
+        help="Normalized Y position for custom/custom-drag label mode (0.0-1.0)",
     )
     process_parser.add_argument(
         "--no-part-overlay",
@@ -735,9 +785,21 @@ def build_parser() -> argparse.ArgumentParser:
     run_folder_parser.add_argument("--output-height", type=int, default=1920, help="Output height")
     run_folder_parser.add_argument(
         "--part-label-position",
-        choices=["top-left", "top-center"],
+        choices=PART_LABEL_POSITIONS,
         default="top-center",
         help="Part label position",
+    )
+    run_folder_parser.add_argument(
+        "--label-x-pct",
+        type=float,
+        default=0.5,
+        help="Normalized X position for custom/custom-drag label mode (0.0-1.0)",
+    )
+    run_folder_parser.add_argument(
+        "--label-y-pct",
+        type=float,
+        default=0.05,
+        help="Normalized Y position for custom/custom-drag label mode (0.0-1.0)",
     )
     run_folder_parser.add_argument(
         "--no-part-overlay",
