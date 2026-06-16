@@ -226,6 +226,17 @@
       background: #000;
     }
 
+    .preview-frame-image {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+      display: none;
+    }
+
     .preview-label {
       position: absolute;
       z-index: 10;
@@ -297,8 +308,40 @@
       display: none;
     }
 
+    .preview-logo {
+      position: absolute;
+      z-index: 8;
+      width: 15%;
+      height: auto;
+      display: none;
+      user-select: none;
+      touch-action: none;
+      pointer-events: auto;
+      cursor: grab;
+    }
+
+    .preview-logo.is-dragging {
+      cursor: grabbing;
+      outline: 2px solid rgba(89, 200, 255, 0.85);
+      outline-offset: 2px;
+    }
+
     .youtube-credit-panel {
       margin: 8px 0 10px;
+    }
+
+    .preview-controls {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+
+    .logo-controls {
+      margin-top: 12px;
+      display: grid;
+      gap: 10px;
     }
 
     .preview-reaction-layout {
@@ -496,6 +539,39 @@
       align-items: start;
     }
 
+    .description-actions {
+      margin-top: 12px;
+      display: none;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+    }
+
+    .description-actions.is-visible {
+      display: grid;
+    }
+
+    .description-actions a,
+    .description-actions button,
+    .preview-copy-btn {
+      min-height: 34px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .description-actions a {
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid #343434;
+      background: #1c1c1c;
+      color: #efefef;
+      text-decoration: none;
+      font-weight: 700;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
     .preview-card {
       width: 100%;
       padding: 10px;
@@ -507,6 +583,11 @@
       gap: 8px;
       text-align: left;
       cursor: pointer;
+    }
+
+    .preview-card:focus-visible {
+      outline: 2px solid rgba(245, 245, 245, 0.72);
+      outline-offset: 2px;
     }
 
     .preview-card:hover:not(:disabled) {
@@ -562,6 +643,15 @@
 
     .preview-card-title.is-fallback {
       color: #91a7d8;
+    }
+
+    .preview-card-actions {
+      display: grid;
+      gap: 6px;
+    }
+
+    .preview-copy-btn {
+      width: 100%;
     }
 
     @keyframes previewPuffWiggle {
@@ -3106,8 +3196,17 @@
         <h1 class="section-title">Frame preview</h1>
         <p class="section-subtitle">Rendered clips appear here as they finish. Click a card to focus that output without leaving the page.</p>
 
+        <div class="preview-controls">
+          <div class="field">
+            <label for="previewFrameTimestamp">Preview Frame Time</label>
+            <input id="previewFrameTimestamp" type="text" value="00:00:05" placeholder="00:00:05">
+          </div>
+          <button id="loadPreviewFrameBtn" type="button" class="secondary">Load Preview Frame</button>
+        </div>
+
         <div class="preview-shell" id="previewShell">
           <button id="previewBack" class="preview-back secondary hidden" type="button">Back to Gallery</button>
+          <img id="previewFrameImage" class="preview-frame-image" alt="Preview frame">
           <div id="previewPlaceholder" class="preview-placeholder">
             <div class="preview-icon">9:16</div>
             <div>
@@ -3138,10 +3237,41 @@
           </div>
           <div id="previewCaption" class="preview-caption">Your caption appears here</div>
           <div id="previewYoutubeCredit" class="preview-youtube-credit">YT: Channel</div>
+          <img id="previewLogo" class="preview-logo" alt="Logo overlay">
           <div id="previewLabel" class="preview-label">Part 1</div>
         </div>
 
         <div id="previewMeta" class="preview-meta">1080 x 1920</div>
+        <div id="descriptionActions" class="description-actions">
+          <a id="downloadDescriptionsTxt" href="#" download="descriptions.txt">Download descriptions.txt</a>
+          <a id="downloadDescriptionsJson" href="#" download="descriptions.json">Download descriptions.json</a>
+          <button id="copyAllDescriptionsBtn" type="button" class="secondary">Copy all descriptions</button>
+        </div>
+        <div class="logo-controls">
+          <div class="group-label">Logo / Watermark</div>
+          <div class="field checkbox-field">
+            <label>
+              <input id="logoEnabled" type="checkbox">
+              Enable Logo
+            </label>
+          </div>
+          <div id="logoFields" class="hidden">
+            <div class="button-row">
+              <button id="uploadLogoBtn" type="button" class="secondary">Upload PNG Logo</button>
+              <input id="logoFileInput" type="file" accept=".png,image/png" class="hidden">
+            </div>
+            <div class="row-2">
+              <div class="field">
+                <label for="logoOpacity">Logo Opacity</label>
+                <input id="logoOpacity" type="range" min="0" max="100" step="1" value="100">
+              </div>
+              <div class="field">
+                <label for="logoWidthPercent">Logo Size</label>
+                <input id="logoWidthPercent" type="range" min="5" max="50" step="1" value="15">
+              </div>
+            </div>
+          </div>
+        </div>
         <div id="previewGallery" class="preview-gallery"></div>
       </article>
     </section>
@@ -3316,6 +3446,9 @@
       processBtn: document.getElementById("processBtn"),
       stopBtn: document.getElementById("stopBtn"),
       previewShell: document.getElementById("previewShell"),
+      previewFrameTimestamp: document.getElementById("previewFrameTimestamp"),
+      loadPreviewFrameBtn: document.getElementById("loadPreviewFrameBtn"),
+      previewFrameImage: document.getElementById("previewFrameImage"),
       previewBack: document.getElementById("previewBack"),
       previewPlaceholder: document.getElementById("previewPlaceholder"),
       previewPlaceholderTitle: document.getElementById("previewPlaceholderTitle"),
@@ -3324,6 +3457,10 @@
       previewVideoWrap: document.getElementById("previewVideoWrap"),
       previewVideo: document.getElementById("previewVideo"),
       previewMeta: document.getElementById("previewMeta"),
+      descriptionActions: document.getElementById("descriptionActions"),
+      downloadDescriptionsTxt: document.getElementById("downloadDescriptionsTxt"),
+      downloadDescriptionsJson: document.getElementById("downloadDescriptionsJson"),
+      copyAllDescriptionsBtn: document.getElementById("copyAllDescriptionsBtn"),
       previewReactionLayout: document.getElementById("previewReactionLayout"),
       previewReactionMain: document.getElementById("previewReactionMain"),
       previewReactionFace: document.getElementById("previewReactionFace"),
@@ -3332,6 +3469,13 @@
       previewCaptionDuration: document.getElementById("previewCaptionDuration"),
       previewCaption: document.getElementById("previewCaption"),
       previewYoutubeCredit: document.getElementById("previewYoutubeCredit"),
+      logoEnabled: document.getElementById("logoEnabled"),
+      logoFields: document.getElementById("logoFields"),
+      uploadLogoBtn: document.getElementById("uploadLogoBtn"),
+      logoFileInput: document.getElementById("logoFileInput"),
+      logoOpacity: document.getElementById("logoOpacity"),
+      logoWidthPercent: document.getElementById("logoWidthPercent"),
+      previewLogo: document.getElementById("previewLogo"),
       previewLabel: document.getElementById("previewLabel"),
       previewGallery: document.getElementById("previewGallery"),
       statusPill: document.getElementById("statusPill"),
@@ -3393,16 +3537,29 @@
       previewRegionDrag: null,
       dividerDrag: null,
       sourcePreviewUrl: "",
+      previewFrameUrl: "",
+      previewFrameNaturalWidth: 0,
+      previewFrameNaturalHeight: 0,
+      previewFrameReloadTimer: null,
       referenceFrameUrl: "",
       referenceFrameSource: "",
       referenceFrameNaturalWidth: 0,
       referenceFrameNaturalHeight: 0,
       referenceFrameObjectUrl: "",
+      logoUrl: "",
+      logoPath: "",
+      logoXPercent: 82,
+      logoYPercent: 5,
+      logoWidthPercent: 15,
+      logoOpacity: 100,
+      logoDrag: null,
       previewCards: new Map(),
       previewCardElements: new Map(),
       previewOrder: [],
       focusedPreviewKey: "",
       loggedPreviewKeys: new Set(),
+      descriptionDownloads: {},
+      descriptionText: "",
       manualChaptersEditor: null,
       sourceMode: "url",
       liveJobId: "",
@@ -5185,6 +5342,174 @@
       applyPreviewYoutubeCreditPosition();
     }
 
+    function previewFrameSource() {
+      return String(el.url.value || "").trim();
+    }
+
+    function syncPreviewFrameVisibility() {
+      const hasFrame = Boolean(state.previewFrameUrl);
+      el.previewFrameImage.style.display = hasFrame ? "block" : "none";
+      if (hasFrame) {
+        el.previewFrameImage.src = state.previewFrameUrl;
+      } else {
+        el.previewFrameImage.removeAttribute("src");
+      }
+    }
+
+    function previewFramePayload() {
+      return {
+        source: previewFrameSource(),
+        timestamp: el.previewFrameTimestamp.value.trim() || "00:00:05",
+        render_mode: el.yScaleMode.value || "letterbox",
+        video_style_scale: Math.round(clampNumber(el.layoutSizeSlider.value, 0, 100, 50)),
+        output_width: Number(el.outputWidth.value || 1080),
+        output_height: Number(el.outputHeight.value || 1920),
+        reaction_layout: isReactionLayoutMode() ? {
+          preset: el.reactionLayoutPreset.value || "content_top_facecam_bottom",
+          timeline: reactionTimelineForPayload(),
+        } : null,
+      };
+    }
+
+    async function loadPreviewFrame({ silent = false } = {}) {
+      const source = previewFrameSource();
+      if (!source) {
+        if (!silent) {
+          setPreviewPlaceholderCopy("Preview Frame", "Enter a source or upload a file first.");
+          setPreviewState("idle");
+        }
+        return;
+      }
+      if (!silent) {
+        setPreviewState("loading", "Loading preview frame...");
+      }
+      el.loadPreviewFrameBtn.disabled = true;
+      try {
+        const data = await fetchJson("/api/preview-frame", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(previewFramePayload()),
+        });
+        const imageUrl = `${data.preview_image_url}${data.preview_image_url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+        state.previewFrameUrl = imageUrl;
+        state.previewFrameNaturalWidth = Number(data.source_width || 0);
+        state.previewFrameNaturalHeight = Number(data.source_height || 0);
+        syncPreviewFrameVisibility();
+        setPreviewState("idle", state.previewFrameNaturalWidth && state.previewFrameNaturalHeight
+          ? `${Math.round(state.previewFrameNaturalWidth)} x ${Math.round(state.previewFrameNaturalHeight)} source`
+          : "Preview frame loaded");
+        if (!silent) logLine("Loaded preview frame.");
+      } catch (error) {
+        if (!silent) {
+          setPreviewState("idle");
+          logLine(`Preview frame failed: ${error.message || error}`);
+        }
+      } finally {
+        el.loadPreviewFrameBtn.disabled = false;
+      }
+    }
+
+    function schedulePreviewFrameReload() {
+      if (!state.previewFrameUrl) return;
+      if (state.previewFrameReloadTimer) clearTimeout(state.previewFrameReloadTimer);
+      state.previewFrameReloadTimer = setTimeout(() => {
+        state.previewFrameReloadTimer = null;
+        loadPreviewFrame({ silent: true });
+      }, 350);
+    }
+
+    function syncLogoFields() {
+      const enabled = Boolean(el.logoEnabled.checked);
+      el.logoFields.classList.toggle("hidden", !enabled);
+      updatePreviewLogo();
+    }
+
+    function updatePreviewLogo() {
+      state.logoWidthPercent = clampNumber(el.logoWidthPercent.value, 1, 100, 15);
+      state.logoOpacity = clampNumber(el.logoOpacity.value, 0, 100, 100);
+      const visible = Boolean(el.logoEnabled.checked && state.logoUrl);
+      el.previewLogo.style.display = visible ? "block" : "none";
+      if (visible) {
+        el.previewLogo.src = state.logoUrl;
+        el.previewLogo.style.width = `${state.logoWidthPercent}%`;
+        el.previewLogo.style.opacity = `${state.logoOpacity / 100}`;
+        requestAnimationFrame(applyPreviewLogoPosition);
+      } else {
+        el.previewLogo.removeAttribute("src");
+      }
+    }
+
+    function applyPreviewLogoPosition() {
+      if (!el.previewLogo || el.previewLogo.style.display === "none") return;
+      const shellRect = el.previewShell.getBoundingClientRect();
+      const logoRect = el.previewLogo.getBoundingClientRect();
+      const maxX = Math.max(0, shellRect.width - logoRect.width);
+      const maxY = Math.max(0, shellRect.height - logoRect.height);
+      const x = (clampPercent(state.logoXPercent, 82) / 100) * maxX;
+      const y = (clampPercent(state.logoYPercent, 5) / 100) * maxY;
+      el.previewLogo.style.left = `${x}px`;
+      el.previewLogo.style.top = `${y}px`;
+    }
+
+    function updateLogoFromPointer(clientX, clientY) {
+      const drag = state.logoDrag;
+      if (!drag) return;
+      const shellRect = el.previewShell.getBoundingClientRect();
+      const logoWidth = el.previewLogo.offsetWidth;
+      const logoHeight = el.previewLogo.offsetHeight;
+      const maxX = Math.max(0, shellRect.width - logoWidth);
+      const maxY = Math.max(0, shellRect.height - logoHeight);
+      let targetX = clientX - shellRect.left - drag.offsetX;
+      let targetY = clientY - shellRect.top - drag.offsetY;
+      targetX = Math.max(0, Math.min(maxX, targetX));
+      targetY = Math.max(0, Math.min(maxY, targetY));
+      state.logoXPercent = maxX > 0 ? (targetX / maxX) * 100 : 0;
+      state.logoYPercent = maxY > 0 ? (targetY / maxY) * 100 : 0;
+      applyPreviewLogoPosition();
+    }
+
+    function handleLogoPointerDown(event) {
+      if (!el.logoEnabled.checked || !state.logoUrl) return;
+      event.preventDefault();
+      const logoRect = el.previewLogo.getBoundingClientRect();
+      state.logoDrag = {
+        pointerId: event.pointerId,
+        offsetX: event.clientX - logoRect.left,
+        offsetY: event.clientY - logoRect.top,
+      };
+      el.previewLogo.setPointerCapture(event.pointerId);
+      el.previewLogo.classList.add("is-dragging");
+    }
+
+    async function uploadLogo(file) {
+      if (!file) return;
+      const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+      if (ext !== ".png") {
+        logLine("Logo upload failed: use a PNG file.");
+        return;
+      }
+      const formData = new FormData();
+      formData.append("file", file);
+      el.uploadLogoBtn.disabled = true;
+      try {
+        const response = await fetch("/api/logo/upload", { method: "POST", body: formData });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.detail || `Logo upload failed (${response.status}).`);
+        }
+        state.logoUrl = `${data.logo_url}${data.logo_url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+        state.logoPath = data.logo_path || "";
+        el.logoEnabled.checked = true;
+        syncLogoFields();
+        logLine(`Logo uploaded: ${data.filename || file.name}`);
+      } catch (error) {
+        logLine(`Logo upload failed: ${error.message || error}`);
+      } finally {
+        el.uploadLogoBtn.disabled = false;
+        el.logoFileInput.value = "";
+      }
+    }
+
     function applyChapterCaptionPositionPreset() {
       state.overlayXPercent = 50;
       state.overlayYPercent = (el.chapterTitlePosition.value || "top") === "bottom" ? 78 : 12;
@@ -6370,6 +6695,11 @@
         updateDividerFromPointer(event);
         return;
       }
+      if (state.logoDrag) {
+        if (state.logoDrag.pointerId !== event.pointerId) return;
+        updateLogoFromPointer(event.clientX, event.clientY);
+        return;
+      }
       if (state.dragActive) {
         if (state.dragPointerId !== null && event.pointerId !== state.dragPointerId) return;
         updateCustomLabelFromPointer(event.clientX, event.clientY);
@@ -6399,6 +6729,13 @@
         if (state.dividerDrag.pointerId !== event.pointerId) return;
         state.dividerDrag = null;
         syncReactionPreview();
+        return;
+      }
+      if (state.logoDrag) {
+        if (state.logoDrag.pointerId !== event.pointerId) return;
+        state.logoDrag = null;
+        el.previewLogo.classList.remove("is-dragging");
+        applyPreviewLogoPosition();
         return;
       }
       if (state.dragActive) {
@@ -6438,16 +6775,21 @@
       el.previewVideoWrap.classList.add("hidden");
       el.previewBack.classList.add("hidden");
       el.previewReactionLayout.classList.add("hidden");
+      el.previewFrameImage.style.display = "none";
 
       if (mode === "idle" && isReactionLayoutMode()) {
+        syncPreviewFrameVisibility();
         el.previewReactionLayout.classList.remove("hidden");
         syncReactionPreview();
       } else if (mode === "idle") {
-        el.previewPlaceholder.classList.remove("hidden");
-        if (state.previewOrder.length > 0) {
-          setPreviewPlaceholderCopy("Preview Gallery", "Click a rendered clip below to focus it.");
-        } else {
-          setPreviewPlaceholderCopy("Video Frame", "9:16 Vertical Format");
+        syncPreviewFrameVisibility();
+        if (!state.previewFrameUrl) {
+          el.previewPlaceholder.classList.remove("hidden");
+          if (state.previewOrder.length > 0) {
+            setPreviewPlaceholderCopy("Preview Gallery", "Click a rendered clip below to focus it.");
+          } else {
+            setPreviewPlaceholderCopy("Video Frame", "9:16 Vertical Format");
+          }
         }
         el.previewVideo.removeAttribute("src");
         delete el.previewVideo.dataset.previewKey;
@@ -6466,6 +6808,7 @@
       updatePreviewYoutubeCredit();
       applyPreviewCaptionPosition();
       applyPreviewLabelPosition();
+      applyPreviewLogoPosition();
     }
 
     function setUiBusy(isBusy) {
@@ -6544,6 +6887,13 @@
         el.presetSelect,
         el.savePresetBtn,
         el.deletePresetBtn,
+        el.previewFrameTimestamp,
+        el.loadPreviewFrameBtn,
+        el.logoEnabled,
+        el.uploadLogoBtn,
+        el.logoFileInput,
+        el.logoOpacity,
+        el.logoWidthPercent,
       ];
 
       controls.forEach((node) => {
@@ -6574,6 +6924,7 @@
       const heightPct = clampNumber(50 + ((scale - 50) * 0.9), 24, 96, 50);
       el.layoutVideoRect.style.height = `${heightPct}%`;
       el.layoutSizeText.textContent = `${Math.round(scale)} / 100`;
+      schedulePreviewFrameReload();
     }
 
     function reactionTimelineForPayload() {
@@ -6646,6 +6997,13 @@
         no_part_overlay: Boolean(el.noPartOverlay.checked),
         part_label_x_percent: clampPercent(state.labelXPct * 100, 50),
         part_label_y_percent: clampPercent(state.labelYPct * 100, 4),
+        preview_frame_timestamp: el.previewFrameTimestamp.value.trim() || "00:00:05",
+        logo_enabled: Boolean(el.logoEnabled.checked && state.logoPath),
+        logo_path: state.logoPath || null,
+        logo_x_percent: clampPercent(state.logoXPercent, 82),
+        logo_y_percent: clampPercent(state.logoYPercent, 5),
+        logo_width_percent: clampNumber(el.logoWidthPercent.value, 1, 100, 15),
+        logo_opacity: clampNumber(el.logoOpacity.value, 0, 100, 100),
         manual_caption_text: reactionEnabled ? null : (manualCaptionInputText() || null),
         overlay_x_percent: clampPercent(state.overlayXPercent, 50),
         overlay_y_percent: clampPercent(state.overlayYPercent, 12),
@@ -7091,6 +7449,86 @@
       el.partsPanel.textContent = partFiles.join("\n");
     }
 
+    function setDescriptionDownloads(downloads = {}) {
+      state.descriptionDownloads = downloads && typeof downloads === "object" ? downloads : {};
+      const txt = state.descriptionDownloads.txt || {};
+      const json = state.descriptionDownloads.json || {};
+      const txtUrl = String(txt.url || "");
+      const jsonUrl = String(json.url || "");
+
+      el.downloadDescriptionsTxt.href = txtUrl || "#";
+      el.downloadDescriptionsJson.href = jsonUrl || "#";
+      el.downloadDescriptionsTxt.classList.toggle("hidden", !txtUrl);
+      el.downloadDescriptionsJson.classList.toggle("hidden", !jsonUrl);
+      el.descriptionActions.classList.toggle("is-visible", Boolean(txtUrl || jsonUrl || state.descriptionText));
+    }
+
+    function descriptionsTextFromPreviews() {
+      return state.previewOrder
+        .map((key) => state.previewCards.get(key))
+        .filter((preview) => preview && preview.uploadDescription)
+        .sort((a, b) => a.partNumber - b.partNumber || a.name.localeCompare(b.name))
+        .map((preview) => `Part ${preview.partNumber}:\n${preview.uploadDescription}`)
+        .join("\n\n");
+    }
+
+    function descriptionsTextFromStatus(statusPayload) {
+      const files = statusPayload && statusPayload.description_files;
+      const items = files && Array.isArray(files.items) ? files.items : [];
+      return items
+        .filter((item) => item && item.description)
+        .sort((a, b) => Number(a.part || 0) - Number(b.part || 0))
+        .map((item) => `Part ${Number(item.part || 0)}:\n${String(item.description || "").trim()}`)
+        .join("\n\n");
+    }
+
+    async function copyTextToClipboard(text) {
+      const value = String(text || "").trim();
+      if (!value) return false;
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand("copy");
+      textarea.remove();
+      return ok;
+    }
+
+    async function copyDescriptionForPreview(preview) {
+      const description = preview && preview.uploadDescription ? preview.uploadDescription : "";
+      if (!description) {
+        logLine("No upload description available for this part yet.");
+        return;
+      }
+      try {
+        await copyTextToClipboard(description);
+        logLine(`Copied description: ${preview.label}`);
+      } catch (error) {
+        setErrorLine(String(error && error.message ? error.message : error));
+      }
+    }
+
+    async function copyAllDescriptions() {
+      const text = state.descriptionText || descriptionsTextFromPreviews();
+      if (!text) {
+        logLine("No descriptions available to copy yet.");
+        return;
+      }
+      try {
+        await copyTextToClipboard(text);
+        logLine("Copied all descriptions.");
+      } catch (error) {
+        setErrorLine(String(error && error.message ? error.message : error));
+      }
+    }
+
     function updateFfmpegPanel(line) {
       if (!line) return;
       if (line === state.latestFfmpeg) return;
@@ -7151,6 +7589,7 @@
         partNumber,
         label: `Part ${partNumber}`,
         title: String(item.title || "").trim(),
+        uploadDescription: String(item.upload_description || item.description || "").trim(),
         ready: item.ready !== false,
       };
     }
@@ -7170,11 +7609,16 @@
       const labelNode = card.querySelector(".preview-card-label");
       const videoNode = card.querySelector("video");
       const titleNode = card.querySelector(".preview-card-title");
+      const copyButton = card.querySelector(".preview-copy-btn");
 
       labelNode.textContent = preview.label;
       titleNode.textContent = preview.title || preview.name;
       titleNode.classList.toggle("hidden", !preview.title && !preview.name);
       titleNode.classList.toggle("is-fallback", !preview.title);
+      if (copyButton) {
+        copyButton.disabled = !preview.uploadDescription;
+        copyButton.title = preview.uploadDescription || "Description not available yet";
+      }
 
       if (card.dataset.previewUrl !== preview.url) {
         videoNode.src = previewMediaUrl(preview.url);
@@ -7184,10 +7628,11 @@
     }
 
     function createPreviewCard(preview) {
-      const card = document.createElement("button");
-      card.type = "button";
+      const card = document.createElement("div");
       card.className = "preview-card is-new";
       card.dataset.previewKey = preview.key;
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
 
       const labelNode = document.createElement("div");
       labelNode.className = "preview-card-label";
@@ -7206,8 +7651,28 @@
       const titleNode = document.createElement("div");
       titleNode.className = "preview-card-title";
 
-      card.append(labelNode, mediaNode, titleNode);
+      const actionsNode = document.createElement("div");
+      actionsNode.className = "preview-card-actions";
+
+      const copyButton = document.createElement("button");
+      copyButton.type = "button";
+      copyButton.className = "secondary preview-copy-btn";
+      copyButton.textContent = "Copy description for this part";
+      copyButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const latest = state.previewCards.get(preview.key) || preview;
+        copyDescriptionForPreview(latest);
+      });
+      actionsNode.appendChild(copyButton);
+
+      card.append(labelNode, mediaNode, titleNode, actionsNode);
       card.addEventListener("click", () => focusPreview(preview.key));
+      card.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        if (event.target && event.target.closest && event.target.closest("button")) return;
+        event.preventDefault();
+        focusPreview(preview.key);
+      });
       card.addEventListener("mouseenter", () => {
         const playPromise = videoNode.play();
         if (playPromise && typeof playPromise.catch === "function") {
@@ -7278,6 +7743,8 @@
       delete el.previewVideo.dataset.previewUrl;
       el.previewVideo.load();
       setPreviewPlaceholderCopy("Video Frame", "9:16 Vertical Format");
+      state.descriptionText = "";
+      setDescriptionDownloads({});
     }
 
     function syncPreviewGallery(payload) {
@@ -7343,6 +7810,8 @@
         setPreviewState("idle", buildPreviewMeta());
       }
 
+      state.descriptionText = descriptionsTextFromPreviews();
+      setDescriptionDownloads(state.descriptionDownloads);
       updateSelectedPreviewCards();
     }
 
@@ -7434,6 +7903,8 @@
           : (Array.isArray(statusPayload.part_files) ? statusPayload.part_files : []);
 
         updatePartsPanel(partFiles);
+        state.descriptionText = descriptionsTextFromStatus(statusPayload);
+        setDescriptionDownloads(payload.description_downloads || {});
 
         if (statusPayload && statusPayload.rendered_parts && Array.isArray(statusPayload.rendered_parts)) {
           const partOne = statusPayload.rendered_parts.find((item) => item && Number(item.part_number) === 1);
@@ -7647,7 +8118,10 @@
     el.splitMode.addEventListener("change", syncSplitModeFields);
     syncSplitModeFields();
     el.chapterTitlePosition.addEventListener("change", applyChapterCaptionPositionPreset);
-    el.yScaleMode.addEventListener("change", syncReactionLayoutMode);
+    el.yScaleMode.addEventListener("change", () => {
+      syncReactionLayoutMode();
+      schedulePreviewFrameReload();
+    });
     el.layoutSizeSlider.addEventListener("input", () => syncLayoutSizeControl("slider"));
     el.contentHeightBumpPx.addEventListener("input", () => syncLayoutSizeControl("advanced"));
     el.sourceMode.addEventListener("change", syncSourceMode);
@@ -7737,6 +8211,7 @@
     el.saveLayoutPresetBtn.addEventListener("click", saveCurrentLayoutPreset);
     el.manageLayoutPresetsBtn.addEventListener("click", manageLayoutPresets);
     el.loadReferenceFrameBtn.addEventListener("click", loadReferenceFrame);
+    el.loadPreviewFrameBtn.addEventListener("click", () => loadPreviewFrame());
     el.uploadReferenceBtn.addEventListener("click", () => el.referenceImageInput.click());
     el.referenceImageInput.addEventListener("change", () => {
       if (el.referenceImageInput.files && el.referenceImageInput.files[0]) {
@@ -7876,6 +8351,7 @@
     el.subtitlesEnabled.addEventListener("change", syncSubtitleFields);
     syncSubtitleFields();
     syncYoutubeCreditFields();
+    syncLogoFields();
 
     // --- Drag-and-drop upload ---
     const ALLOWED_EXTS = new Set([".mp4", ".webm", ".mkv", ".mov", ".avi"]);
@@ -7942,6 +8418,10 @@
         }
         const data = await res.json();
         el.url.value = data.path;
+        state.previewFrameUrl = "";
+        state.previewFrameNaturalWidth = 0;
+        state.previewFrameNaturalHeight = 0;
+        syncPreviewFrameVisibility();
         el.sourceMode.value = "upload";
         syncSourceMode();
         dzSetStatus("✓ " + data.filename, "ok");
@@ -7958,6 +8438,10 @@
         URL.revokeObjectURL(state.sourcePreviewUrl);
         state.sourcePreviewUrl = "";
       }
+      state.previewFrameUrl = "";
+      state.previewFrameNaturalWidth = 0;
+      state.previewFrameNaturalHeight = 0;
+      syncPreviewFrameVisibility();
       el.reactionSourceVideo.removeAttribute("src");
       el.reactionSourceVideo.classList.add("hidden");
       el.reactionSourceVideo.load();
@@ -8000,11 +8484,19 @@
     el.showYoutubeCredit.addEventListener("change", syncYoutubeCreditFields);
     el.youtubeCreditText.addEventListener("input", updatePreviewYoutubeCredit);
     el.youtubeCreditPosition.addEventListener("change", updatePreviewYoutubeCredit);
+    el.logoEnabled.addEventListener("change", syncLogoFields);
+    el.uploadLogoBtn.addEventListener("click", () => el.logoFileInput.click());
+    el.logoFileInput.addEventListener("change", () => uploadLogo(el.logoFileInput.files && el.logoFileInput.files[0]));
+    el.logoOpacity.addEventListener("input", updatePreviewLogo);
+    el.logoWidthPercent.addEventListener("input", updatePreviewLogo);
+    el.previewLogo.addEventListener("load", applyPreviewLogoPosition);
     el.previewCaption.addEventListener("pointerdown", handleCaptionPointerDown);
     el.previewLabel.addEventListener("pointerdown", handleLabelPointerDown);
+    el.previewLogo.addEventListener("pointerdown", handleLogoPointerDown);
     el.previewReactionLayout.addEventListener("pointerdown", handlePreviewRegionPointerDown);
     el.reactionDivider.addEventListener("pointerdown", handleDividerPointerDown);
     el.previewBack.addEventListener("click", clearFocusedPreview);
+    el.copyAllDescriptionsBtn.addEventListener("click", copyAllDescriptions);
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", stopDrag);
     window.addEventListener("pointercancel", stopDrag);
@@ -8014,6 +8506,7 @@
       applyPreviewYoutubeCreditPosition();
       applyPreviewCaptionPosition();
       applyPreviewLabelPosition();
+      applyPreviewLogoPosition();
     });
 
     el.processBtn.addEventListener("click", startProcess);

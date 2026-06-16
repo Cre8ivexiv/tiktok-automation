@@ -71,6 +71,13 @@ RENDER_STYLE_KEYS: frozenset[str] = frozenset(
         "reference_frame_url",
         "source_width",
         "source_height",
+        "preview_frame_timestamp",
+        "logo_enabled",
+        "logo_path",
+        "logo_x_percent",
+        "logo_y_percent",
+        "logo_width_percent",
+        "logo_opacity",
         "reaction_layout_keyframes",
         "reaction_timeline",
         "imported_clip_plan",
@@ -308,6 +315,23 @@ def _manifest_parts_by_number(out_dir: Path) -> dict[int, dict[str, Any]]:
     return mapped
 
 
+def _description_files_from_manifest(out_dir: Path) -> dict[str, Any]:
+    manifest_path = out_dir / "render_manifest.json"
+    if not manifest_path.exists():
+        return {}
+    try:
+        manifest = read_json(manifest_path)
+    except (OSError, json.JSONDecodeError):
+        return {}
+    files = manifest.get("description_files")
+    descriptions = manifest.get("descriptions")
+    return {
+        "txt": str(files.get("txt") or "") if isinstance(files, dict) else "",
+        "json": str(files.get("json") or "") if isinstance(files, dict) else "",
+        "items": descriptions if isinstance(descriptions, list) else [],
+    }
+
+
 def process_video_job(
     *,
     input_value: str,
@@ -362,6 +386,13 @@ def process_video_job(
     reference_frame_url: str | None = None,
     source_width: int | None = None,
     source_height: int | None = None,
+    preview_frame_timestamp: str = "00:00:05",
+    logo_enabled: bool = False,
+    logo_path: str | None = None,
+    logo_x_percent: float = 82.0,
+    logo_y_percent: float = 5.0,
+    logo_width_percent: float = 15.0,
+    logo_opacity: float = 100.0,
     reaction_layout_keyframes: list[dict[str, Any]] | None = None,
     reaction_timeline: list[dict[str, Any]] | None = None,
     imported_clip_plan: dict[str, Any] | None = None,
@@ -539,11 +570,18 @@ def process_video_job(
         show_youtube_credit=show_youtube_credit,
         youtube_credit_text=youtube_credit_text or (source_channel or source_uploader),
         youtube_credit_position=youtube_credit_position,
+        logo_enabled=logo_enabled,
+        logo_path=logo_path,
+        logo_x_percent=logo_x_percent,
+        logo_y_percent=logo_y_percent,
+        logo_width_percent=logo_width_percent,
+        logo_opacity=logo_opacity,
     )
     log_fn(f"Rendered parts: {len(rendered)}")
 
     schedule_start = parse_start_time(start_time)
     manifest_parts = _manifest_parts_by_number(out_dir)
+    description_files = _description_files_from_manifest(out_dir)
     part_descriptions = {
         part_number: str(item.get("upload_description") or "").strip()
         for part_number, item in manifest_parts.items()
@@ -637,6 +675,13 @@ def process_video_job(
             "reference_frame_url": reference_frame_url,
             "source_width": source_width,
             "source_height": source_height,
+            "preview_frame_timestamp": preview_frame_timestamp,
+            "logo_enabled": logo_enabled,
+            "logo_path": logo_path,
+            "logo_x_percent": logo_x_percent,
+            "logo_y_percent": logo_y_percent,
+            "logo_width_percent": logo_width_percent,
+            "logo_opacity": logo_opacity,
             "reaction_layout_keyframes": reaction_layout_keyframes or [],
             "reaction_timeline": reaction_timeline or [],
             "imported_clip_plan": normalized_imported_plan or {},
@@ -644,6 +689,7 @@ def process_video_job(
         "imported_clip_plan": normalized_imported_plan,
         "rendered_parts": rendered_parts_to_dict(rendered),
         "render_manifest_path": str((out_dir / "render_manifest.json").resolve()),
+        "description_files": description_files,
         "part_files": [str(item.path.resolve()) for item in rendered],
         "upload_plan": {
             "start_time": schedule_start.strftime("%Y-%m-%d %H:%M"),
@@ -735,7 +781,14 @@ def render_custom_segments(
         show_youtube_credit=bool(filtered.get("show_youtube_credit", False)),
         youtube_credit_text=filtered.get("youtube_credit_text"),
         youtube_credit_position=str(filtered.get("youtube_credit_position") or "below_frame"),
+        logo_enabled=bool(filtered.get("logo_enabled", False)),
+        logo_path=filtered.get("logo_path"),
+        logo_x_percent=float(filtered.get("logo_x_percent") or 82.0),
+        logo_y_percent=float(filtered.get("logo_y_percent") or 5.0),
+        logo_width_percent=float(filtered.get("logo_width_percent") or 15.0),
+        logo_opacity=float(filtered.get("logo_opacity") if filtered.get("logo_opacity") is not None else 100.0),
     )
+    description_files = _description_files_from_manifest(out_dir)
     payload = {
         "state": "processed",
         "input": str(input_video.resolve()),
@@ -753,6 +806,7 @@ def render_custom_segments(
         },
         "rendered_parts": rendered_parts_to_dict(parts),
         "render_manifest_path": str((out_dir / "render_manifest.json").resolve()),
+        "description_files": description_files,
         "part_files": [str(item.path.resolve()) for item in parts],
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

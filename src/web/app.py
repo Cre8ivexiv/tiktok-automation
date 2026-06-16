@@ -30,7 +30,7 @@ from ..pipeline import (
     upload_job_drafts,
 )
 from ..ai.gemini_client import GeminiConfigError, GeminiRequestError, generate_text
-from ..download import resolve_cached_input_video
+from ..download import is_http_url, resolve_cached_input_video
 from ..live import LiveRecorderManager
 from ..render import Segment, _probe_video_dimensions, _resolve_binary, parse_time_to_seconds
 from ..tiktok.oauth import build_authorize_url, exchange_code_for_tokens, is_connected, load_tokens
@@ -48,8 +48,11 @@ AI_PRESETS_PATH = Path(__file__).resolve().parents[2] / "config" / "ai_presets.j
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
 UPLOAD_EXTENSIONS = {".mp4", ".webm", ".mkv", ".mov", ".avi"}
 UPLOADS_ROOT = Path(__file__).resolve().parents[2] / "downloads" / "uploads"
+LOGOS_ROOT = Path(__file__).resolve().parents[2] / "uploads" / "logos"
 REFERENCE_FRAMES_ROOT = OUTPUTS_ROOT / "reference_frames"
+PREVIEW_FRAMES_ROOT = OUTPUTS_ROOT / "preview_frames"
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB
+MAX_LOGO_BYTES = 10 * 1024 * 1024
 
 
 _VALID_SPLIT_MODES: frozenset[str] = frozenset({"duration", "parts", "manual", "ai", "scene", "chapters"})
@@ -263,6 +266,13 @@ class ProcessRequest(BaseModel):
     reference_frame_url: str | None = None
     source_width: int | None = Field(default=None, gt=0)
     source_height: int | None = Field(default=None, gt=0)
+    preview_frame_timestamp: str = "00:00:05"
+    logo_enabled: bool = False
+    logo_path: str | None = None
+    logo_x_percent: float = Field(default=82.0, ge=0.0, le=100.0)
+    logo_y_percent: float = Field(default=5.0, ge=0.0, le=100.0)
+    logo_width_percent: float = Field(default=15.0, ge=1.0, le=100.0)
+    logo_opacity: float = Field(default=100.0, ge=0.0, le=100.0)
     reaction_layout_keyframes: list[dict[str, Any]] = Field(default_factory=list)
     reaction_timeline: list[ReactionTimelineRowInput] = Field(default_factory=list)
     imported_clip_plan: dict[str, Any] | None = None
@@ -306,6 +316,24 @@ class ProcessRequest(BaseModel):
         if normalized not in allowed:
             raise ValueError(f"youtube_credit_position must be one of {sorted(allowed)}")
         return normalized
+
+    @field_validator("preview_frame_timestamp")
+    @classmethod
+    def _validate_preview_frame_timestamp(cls, value: str) -> str:
+        normalized = str(value or "").strip() or "00:00:05"
+        try:
+            seconds = parse_time_to_seconds(normalized)
+        except ValueError as exc:
+            raise ValueError("preview_frame_timestamp must be seconds, MM:SS, or HH:MM:SS") from exc
+        if seconds < 0:
+            raise ValueError("preview_frame_timestamp must be zero or greater")
+        return normalized
+
+    @field_validator("logo_path")
+    @classmethod
+    def _normalize_logo_path(cls, value: str | None) -> str | None:
+        normalized = str(value or "").strip()
+        return normalized or None
 
     @field_validator("reaction_layout_mode")
     @classmethod
@@ -453,6 +481,45 @@ class ReferenceFrameRequest(BaseModel):
             raise ValueError("timestamp must be seconds, MM:SS, or HH:MM:SS") from exc
         if seconds < 0:
             raise ValueError("timestamp must be zero or greater")
+        return normalized
+
+
+class PreviewFrameRequest(BaseModel):
+    source: str = Field(..., min_length=1)
+    timestamp: str = "00:00:05"
+    render_mode: str = "letterbox"
+    video_style_scale: int = Field(default=50, ge=0, le=100)
+    output_width: int = Field(default=1080, gt=0)
+    output_height: int = Field(default=1920, gt=0)
+    reaction_layout: dict[str, Any] | None = None
+
+    @field_validator("source")
+    @classmethod
+    def _normalize_source(cls, value: str) -> str:
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise ValueError("source is required")
+        return normalized
+
+    @field_validator("timestamp")
+    @classmethod
+    def _validate_timestamp(cls, value: str) -> str:
+        normalized = str(value or "").strip() or "00:00:05"
+        try:
+            seconds = parse_time_to_seconds(normalized)
+        except ValueError as exc:
+            raise ValueError("timestamp must be seconds, MM:SS, or HH:MM:SS") from exc
+        if seconds < 0:
+            raise ValueError("timestamp must be zero or greater")
+        return normalized
+
+    @field_validator("render_mode")
+    @classmethod
+    def _validate_render_mode(cls, value: str) -> str:
+        normalized = str(value or "letterbox").strip().lower()
+        allowed = {"manual", "fill", "letterbox", "zoom", "autozoom", "reaction_layout"}
+        if normalized not in allowed:
+            raise ValueError(f"render_mode must be one of {sorted(allowed)}")
         return normalized
 
 
@@ -971,6 +1038,50 @@ async def _save_uploaded_video(file: UploadFile) -> dict[str, object]:
     return {"path": rel_path, "filename": filename}
 
 
+def _safe_logo_filename(filename: str) -> str:
+    source_name = Path(filename or "logo.png").name.strip()
+    suffix = Path(source_name).suffix.lower()
+    if suffix != ".png":
+        raise HTTPException(status_code=400, detail="Logo upload currently accepts PNG files only.")
+    stem = Path(source_name).stem.strip() or "logo"
+    stem = re.sub(r"[^A-Za-z0-9._ -]+", "_", stem)
+    stem = re.sub(r"\s+", " ", stem).strip(" ._-") or "logo"
+    stem = stem[:80]
+    unique = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    return f"{stem}_{unique}.png"
+
+
+async def _save_uploaded_logo(file: UploadFile) -> dict[str, object]:
+    filename = _safe_logo_filename(file.filename or "logo.png")
+    LOGOS_ROOT.mkdir(parents=True, exist_ok=True)
+    dest = (LOGOS_ROOT / filename).resolve()
+    try:
+        dest.relative_to(LOGOS_ROOT.resolve())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid logo filename.") from exc
+
+    written = 0
+    chunk_size = 512 * 1024
+    with dest.open("wb") as fh:
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            written += len(chunk)
+            if written > MAX_LOGO_BYTES:
+                dest.unlink(missing_ok=True)
+                raise HTTPException(status_code=413, detail="Logo file exceeds the 10 MB limit.")
+            fh.write(chunk)
+    if written <= 0:
+        dest.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="Uploaded logo is empty.")
+    return {
+        "logo_url": f"/api/logo-file/{filename}",
+        "logo_path": str(dest),
+        "filename": filename,
+    }
+
+
 def _reference_timestamp_slug(timestamp: str) -> str:
     seconds = parse_time_to_seconds(timestamp)
     if seconds < 0:
@@ -986,6 +1097,78 @@ def _reference_frame_output_path(source_video: Path, timestamp: str) -> Path:
     digest_source = f"{source_video.resolve()}|{stat.st_mtime_ns}|{stat.st_size}|{timestamp}"
     digest = hashlib.sha1(digest_source.encode("utf-8")).hexdigest()[:16]
     return (REFERENCE_FRAMES_ROOT / f"{digest}_{_reference_timestamp_slug(timestamp)}.jpg").resolve()
+
+
+def _preview_frame_output_path(source_video: Path, request: PreviewFrameRequest) -> Path:
+    stat = source_video.stat()
+    digest_source = (
+        f"{source_video.resolve()}|{stat.st_mtime_ns}|{stat.st_size}|{request.timestamp}|"
+        f"{request.render_mode}|{request.video_style_scale}|{request.output_width}|{request.output_height}"
+    )
+    digest = hashlib.sha1(digest_source.encode("utf-8")).hexdigest()[:16]
+    return (PREVIEW_FRAMES_ROOT / f"{digest}_{_reference_timestamp_slug(request.timestamp)}.jpg").resolve()
+
+
+def _preview_frame_filter(request: PreviewFrameRequest) -> str:
+    output_width = max(2, int(request.output_width))
+    output_height = max(2, int(request.output_height))
+    mode = request.render_mode
+    if mode == "reaction_layout":
+        mode = "letterbox"
+    style_scale = max(0, min(100, int(request.video_style_scale)))
+    bump_px = int((style_scale - 50) * 8)
+    if mode == "letterbox":
+        filters = [f"scale={output_width}:-2"]
+        if bump_px:
+            target_height_expr = f"trunc(max(2\\,min(ih{bump_px:+d}\\,{output_height}))/2)*2"
+            target_width_expr = f"trunc(min(iw\\,{output_width})/2)*2"
+            filters.extend([f"scale=-2:{target_height_expr}", f"crop={target_width_expr}:ih:(iw-{target_width_expr})/2:0"])
+        filters.append(f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2:color=black")
+    elif mode in {"zoom", "autozoom", "fill"}:
+        scale_factor = 2.08
+        if mode == "fill":
+            scale_factor = max(scale_factor, (output_height + 60) / max(1, output_height))
+        filters = [
+            f"scale={output_width}:-2",
+            f"scale=iw:trunc(ih*{scale_factor:g}/2)*2",
+            f"crop={output_width}:min(ih\\,{output_height}):0:(ih-min(ih\\,{output_height}))/2",
+            f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2:color=black",
+        ]
+    else:
+        filters = [
+            f"scale={output_width}:-2",
+            f"pad={output_width}:{output_height}:(ow-iw)/2:(oh-ih)/2:color=black",
+        ]
+    filters.append("setsar=1")
+    return ",".join(filters)
+
+
+def _run_preview_frame_extract(source_video: Path, request: PreviewFrameRequest, output_path: Path) -> None:
+    ffmpeg_bin = _resolve_binary("ffmpeg")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        ffmpeg_bin,
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-ss",
+        request.timestamp,
+        "-i",
+        str(source_video),
+        "-frames:v",
+        "1",
+        "-vf",
+        _preview_frame_filter(request),
+        "-q:v",
+        "2",
+        str(output_path),
+    ]
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "ffmpeg failed to extract a preview frame.")
+    if not output_path.exists() or output_path.stat().st_size <= 0:
+        raise RuntimeError("ffmpeg did not produce a preview frame image.")
 
 
 def _run_reference_frame_extract(source_video: Path, timestamp: str, output_path: Path) -> None:
@@ -1046,6 +1229,10 @@ def _resolve_preview_title(
     part_number: int,
     fallback_title: str = "",
 ) -> str:
+    metadata = _part_metadata_by_number(status_payload).get(part_number, {})
+    title = str(metadata.get("title") or "").strip()
+    if title:
+        return title
     if isinstance(status_payload, dict):
         render_config = status_payload.get("render_config")
         if isinstance(render_config, dict):
@@ -1057,6 +1244,72 @@ def _resolve_preview_title(
     return fallback_title.strip()
 
 
+def _part_metadata_by_number(status_payload: dict[str, object] | None) -> dict[int, dict[str, object]]:
+    mapped: dict[int, dict[str, object]] = {}
+    if not isinstance(status_payload, dict):
+        return mapped
+
+    for key in ("rendered_parts", "parts"):
+        rows = status_payload.get(key)
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            try:
+                part_number = int(row.get("part_number") or row.get("part") or 0)
+            except (TypeError, ValueError):
+                continue
+            if part_number <= 0:
+                continue
+            mapped.setdefault(part_number, {}).update(row)
+
+    description_files = status_payload.get("description_files")
+    description_items = description_files.get("items") if isinstance(description_files, dict) else None
+    if isinstance(description_items, list):
+        for item in description_items:
+            if not isinstance(item, dict):
+                continue
+            try:
+                part_number = int(item.get("part") or item.get("part_number") or 0)
+            except (TypeError, ValueError):
+                continue
+            if part_number <= 0:
+                continue
+            row = mapped.setdefault(part_number, {})
+            if item.get("title") and not row.get("title"):
+                row["title"] = item["title"]
+            if item.get("description") and not row.get("upload_description"):
+                row["upload_description"] = item["description"]
+
+    return mapped
+
+
+def _description_downloads(
+    job_id: str,
+    status_payload: dict[str, object] | None,
+    output_dir: str | Path | None,
+) -> dict[str, object]:
+    out_dir = Path(str(output_dir)).resolve() if output_dir else None
+    files = status_payload.get("description_files") if isinstance(status_payload, dict) else None
+    txt_path = Path(str(files.get("txt"))).resolve() if isinstance(files, dict) and files.get("txt") else None
+    json_path = Path(str(files.get("json"))).resolve() if isinstance(files, dict) and files.get("json") else None
+    if out_dir is not None:
+        txt_path = txt_path or (out_dir / "descriptions.txt").resolve()
+        json_path = json_path or (out_dir / "descriptions.json").resolve()
+
+    result: dict[str, object] = {}
+    for key, path in (("txt", txt_path), ("json", json_path)):
+        if path is None or not path.exists():
+            continue
+        result[key] = {
+            "path": str(path),
+            "url": f"/api/download/{job_id}/{path.name}",
+            "filename": path.name,
+        }
+    return result
+
+
 def _build_preview_parts(
     job_id: str,
     part_files: list[str] | None,
@@ -1066,12 +1319,14 @@ def _build_preview_parts(
 ) -> list[dict[str, object]]:
     seen: set[str] = set()
     preview_parts: list[dict[str, object]] = []
+    metadata_by_part = _part_metadata_by_number(status_payload)
     for raw in _sort_part_files([str(item) for item in (part_files or [])]):
         name = Path(str(raw)).name
         if not name or name in seen:
             continue
         seen.add(name)
         part_number = _extract_part_number(name) or (len(preview_parts) + 1)
+        metadata = metadata_by_part.get(part_number, {})
         preview_parts.append(
             {
                 "name": name,
@@ -1083,6 +1338,9 @@ def _build_preview_parts(
                     part_number=part_number,
                     fallback_title=fallback_title,
                 ),
+                "hashtags": str(metadata.get("hashtags") or "").strip(),
+                "upload_description": str(metadata.get("upload_description") or "").strip(),
+                "description": str(metadata.get("upload_description") or "").strip(),
                 "ready": True,
             }
         )
@@ -1171,6 +1429,13 @@ def _process_task(job_id: str, request: ProcessRequest) -> None:
             reference_frame_url=request.reference_frame_url,
             source_width=request.source_width,
             source_height=request.source_height,
+            preview_frame_timestamp=request.preview_frame_timestamp,
+            logo_enabled=request.logo_enabled,
+            logo_path=request.logo_path,
+            logo_x_percent=request.logo_x_percent,
+            logo_y_percent=request.logo_y_percent,
+            logo_width_percent=request.logo_width_percent,
+            logo_opacity=request.logo_opacity,
             reaction_layout_keyframes=request.reaction_layout_keyframes,
             reaction_timeline=[item.model_dump() for item in request.reaction_timeline],
             imported_clip_plan=request.imported_clip_plan,
@@ -1313,6 +1578,11 @@ def api_status(job_id: str) -> dict[str, object]:
         output_dir = persisted_status.get("output_dir") if isinstance(persisted_status, dict) else None
         live_parts = _discover_part_files(output_dir)
         all_parts = _merge_part_files(persisted_parts, live_parts)
+        description_downloads = _description_downloads(
+            job_id,
+            persisted_status if isinstance(persisted_status, dict) else None,
+            output_dir,
+        )
         return {
             "job_id": job_id,
             "state": str(persisted_status.get("state", "unknown")) if persisted_status else "unknown",
@@ -1324,6 +1594,7 @@ def api_status(job_id: str) -> dict[str, object]:
                 status_payload=persisted_status if isinstance(persisted_status, dict) else None,
                 fallback_title=str(persisted_status.get("title", "")) if isinstance(persisted_status, dict) else "",
             ),
+            "description_downloads": description_downloads,
             "status": persisted_status,
         }
 
@@ -1335,6 +1606,12 @@ def api_status(job_id: str) -> dict[str, object]:
     output_dir = record.get("output_dir") or (persisted_status.get("output_dir") if isinstance(persisted_status, dict) else None)
     live_parts = _discover_part_files(output_dir)
     part_files = _merge_part_files(part_files, live_parts)
+    status_for_metadata = persisted_status if isinstance(persisted_status, dict) else record.get("persisted_status")
+    description_downloads = _description_downloads(
+        job_id,
+        status_for_metadata if isinstance(status_for_metadata, dict) else None,
+        output_dir,
+    )
 
     return {
         "job_id": job_id,
@@ -1345,9 +1622,10 @@ def api_status(job_id: str) -> dict[str, object]:
         "preview_parts": _build_preview_parts(
             job_id,
             part_files,
-            status_payload=persisted_status if isinstance(persisted_status, dict) else None,
+            status_payload=status_for_metadata if isinstance(status_for_metadata, dict) else None,
             fallback_title=str(record.get("title", "")),
         ),
+        "description_downloads": description_downloads,
         "output_dir": output_dir,
         "status": persisted_status or record.get("persisted_status"),
         "updated_at": record.get("updated_at"),
@@ -1659,6 +1937,11 @@ async def api_upload_video(file: UploadFile = File(...)) -> dict[str, object]:
     return await _save_uploaded_video(file)
 
 
+@app.post("/api/logo/upload")
+async def api_logo_upload(file: UploadFile = File(...)) -> dict[str, object]:
+    return await _save_uploaded_logo(file)
+
+
 @app.post("/api/upload")
 async def api_upload(request: Request, background_tasks: BackgroundTasks) -> dict[str, object]:
     content_type = request.headers.get("content-type", "").lower()
@@ -1678,6 +1961,45 @@ async def api_upload(request: Request, background_tasks: BackgroundTasks) -> dic
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
     return _queue_upload_job(upload_request, background_tasks)
+
+
+@app.post("/api/preview-frame")
+def api_preview_frame(request: PreviewFrameRequest) -> dict[str, object]:
+    try:
+        source_video, _source_info = resolve_cached_input_video(
+            input_value=request.source,
+            downloads_root=DOWNLOADS_ROOT,
+        )
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        if is_http_url(request.source):
+            raise HTTPException(
+                status_code=400,
+                detail="Source is not cached yet. Process/download the video first or upload a local file.",
+            ) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        ffprobe_bin = _resolve_binary("ffprobe")
+        dimensions = _probe_video_dimensions(input_video=source_video, ffprobe_bin=ffprobe_bin)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    if dimensions is None:
+        raise HTTPException(status_code=400, detail=f"Could not read source video dimensions: {source_video}")
+
+    try:
+        output_path = _preview_frame_output_path(source_video, request)
+        if not output_path.exists() or output_path.stat().st_size <= 0:
+            _run_preview_frame_extract(source_video, request, output_path)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=500, detail=f"Preview frame extraction failed: {exc}") from exc
+
+    width, height = dimensions
+    return {
+        "preview_image_url": f"/api/preview-frame-file/{output_path.name}",
+        "source_width": width,
+        "source_height": height,
+        "timestamp": request.timestamp,
+    }
 
 
 @app.post("/api/reference-frame")
@@ -1738,6 +2060,44 @@ def api_reference_frame_file(filename: str) -> FileResponse:
     return FileResponse(path=image_path, media_type="image/jpeg", filename=safe_name)
 
 
+@app.get("/api/preview-frame-file/{filename}")
+def api_preview_frame_file(filename: str) -> FileResponse:
+    safe_name = Path(filename).name
+    if safe_name != filename:
+        raise HTTPException(status_code=400, detail="Invalid file name.")
+    if Path(safe_name).suffix.lower() not in {".jpg", ".jpeg"}:
+        raise HTTPException(status_code=400, detail="Unsupported preview frame extension.")
+
+    root = PREVIEW_FRAMES_ROOT.resolve()
+    image_path = (root / safe_name).resolve()
+    try:
+        image_path.relative_to(root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid preview frame path.") from exc
+    if not image_path.exists():
+        raise HTTPException(status_code=404, detail=f"Preview frame not found: {safe_name}")
+    return FileResponse(path=image_path, media_type="image/jpeg", filename=safe_name)
+
+
+@app.get("/api/logo-file/{filename}")
+def api_logo_file(filename: str) -> FileResponse:
+    safe_name = Path(filename).name
+    if safe_name != filename:
+        raise HTTPException(status_code=400, detail="Invalid file name.")
+    if Path(safe_name).suffix.lower() != ".png":
+        raise HTTPException(status_code=400, detail="Unsupported logo extension.")
+
+    root = LOGOS_ROOT.resolve()
+    logo_path = (root / safe_name).resolve()
+    try:
+        logo_path.relative_to(root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid logo path.") from exc
+    if not logo_path.exists():
+        raise HTTPException(status_code=404, detail=f"Logo file not found: {safe_name}")
+    return FileResponse(path=logo_path, media_type="image/png", filename=safe_name)
+
+
 @app.get("/api/media/{job_id}/{filename}")
 def api_media(job_id: str, filename: str) -> FileResponse:
     safe_name = Path(filename).name
@@ -1767,3 +2127,22 @@ def api_media(job_id: str, filename: str) -> FileResponse:
         media_type = "video/x-matroska"
 
     return FileResponse(path=media_path, media_type=media_type, filename=safe_name)
+
+
+@app.get("/api/download/{job_id}/{filename}")
+def api_download(job_id: str, filename: str) -> FileResponse:
+    safe_name = Path(filename).name
+    if safe_name != filename or safe_name not in {"descriptions.txt", "descriptions.json"}:
+        raise HTTPException(status_code=400, detail="Unsupported download file.")
+
+    out_dir = _resolve_output_dir(job_id)
+    download_path = (out_dir / safe_name).resolve()
+    try:
+        download_path.relative_to(out_dir)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid download path.") from exc
+    if not download_path.exists():
+        raise HTTPException(status_code=404, detail=f"Download file not found: {safe_name}")
+
+    media_type = "application/json" if safe_name.endswith(".json") else "text/plain; charset=utf-8"
+    return FileResponse(path=download_path, media_type=media_type, filename=safe_name)

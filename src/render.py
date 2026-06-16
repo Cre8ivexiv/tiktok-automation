@@ -36,6 +36,10 @@ class RenderedPart:
     start: float
     end: float
     path: Path
+    title: str = ""
+    hashtags: str = ""
+    upload_description: str = ""
+    description_file: Path | None = None
     start_time: str = ""
     end_time: str = ""
     vf: str = ""
@@ -924,6 +928,91 @@ def _build_upload_description(title: str, part_number: int, hashtags: str) -> st
     return f"{safe_title} (Part {part_number}) {safe_hashtags}".strip()
 
 
+def _write_description_exports(out_dir: Path, part_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    descriptions_txt = out_dir / "descriptions.txt"
+    descriptions_json = out_dir / "descriptions.json"
+    description_items: list[dict[str, Any]] = []
+    text_blocks: list[str] = []
+
+    for row in sorted(part_rows, key=lambda item: int(item.get("part_number") or 0)):
+        part_number = int(row.get("part_number") or 0)
+        if part_number <= 0:
+            continue
+        output_name = Path(str(row.get("output_path") or f"part_{part_number}.mp4")).name
+        title = _normalize_overlay_text(row.get("title") or "") or f"Part {part_number}"
+        description = str(row.get("upload_description") or "").strip() or _build_upload_description(
+            title,
+            part_number,
+            str(row.get("hashtags") or ""),
+        )
+        description_items.append(
+            {
+                "part": part_number,
+                "filename": output_name,
+                "title": title,
+                "description": description,
+            }
+        )
+        text_blocks.append(f"Part {part_number}:\n{description}")
+
+    descriptions_txt.write_text("\n\n".join(text_blocks).rstrip() + ("\n" if text_blocks else ""), encoding="utf-8")
+    descriptions_json.write_text(json.dumps(description_items, indent=2), encoding="utf-8")
+
+    return {
+        "txt": str(descriptions_txt.resolve()),
+        "json": str(descriptions_json.resolve()),
+        "items": description_items,
+    }
+
+
+def _resolve_logo_path(logo_path: str | Path | None) -> Path | None:
+    if not logo_path:
+        return None
+    candidate = Path(str(logo_path))
+    if not candidate.is_absolute():
+        candidate = Path(__file__).resolve().parents[1] / candidate
+    candidate = candidate.resolve()
+    if candidate.suffix.lower() != ".png" or not candidate.exists():
+        return None
+    return candidate
+
+
+def _build_logo_input_filter(
+    *,
+    logo_input_index: int,
+    output_width: int,
+    logo_width_percent: float,
+    logo_opacity: float,
+    output_label: str,
+) -> str:
+    width_percent = max(1.0, min(100.0, float(logo_width_percent)))
+    opacity = max(0.0, min(100.0, float(logo_opacity))) / 100.0
+    target_width = max(2, int(round(output_width * width_percent / 100.0)))
+    if target_width % 2:
+        target_width += 1
+    return (
+        f"[{logo_input_index}:v]format=rgba,"
+        f"scale={target_width}:-1,"
+        f"colorchannelmixer=aa={opacity:.3f}[{output_label}]"
+    )
+
+
+def _build_logo_overlay_filter(
+    *,
+    base_label: str,
+    logo_label: str,
+    output_label: str,
+    logo_x_percent: float,
+    logo_y_percent: float,
+) -> str:
+    safe_x = _clamp_percent(logo_x_percent, fallback=82.0)
+    safe_y = _clamp_percent(logo_y_percent, fallback=5.0)
+    return (
+        f"[{base_label}][{logo_label}]"
+        f"overlay=x=(W-w)*{safe_x:g}/100:y=(H-h)*{safe_y:g}/100[{output_label}]"
+    )
+
+
 def _normalize_reaction_crop(crop: dict[str, Any] | None, fallback: dict[str, float]) -> dict[str, float]:
     raw = crop if isinstance(crop, dict) else fallback
 
@@ -1164,6 +1253,11 @@ def _build_reaction_filter_complex(
     youtube_credit_textfile_path: Path | None = None,
     youtube_credit_position: str = "below_frame",
     font_file: Path | None = None,
+    logo_input_index: int | None = None,
+    logo_x_percent: float = 82.0,
+    logo_y_percent: float = 5.0,
+    logo_width_percent: float = 15.0,
+    logo_opacity: float = 100.0,
 ) -> tuple[str, str, dict[str, Any]]:
     main_pixels = _percent_crop_to_pixels(
         main_crop or {"x_percent": 0, "y_percent": 0, "width_percent": 100, "height_percent": 65},
@@ -1236,6 +1330,27 @@ def _build_reaction_filter_complex(
             "[layout_credit]"
         )
         current_label = "layout_credit"
+
+    if logo_input_index is not None:
+        filters.append(
+            _build_logo_input_filter(
+                logo_input_index=logo_input_index,
+                output_width=output_width,
+                logo_width_percent=logo_width_percent,
+                logo_opacity=logo_opacity,
+                output_label="layout_logo_src",
+            )
+        )
+        filters.append(
+            _build_logo_overlay_filter(
+                base_label=current_label,
+                logo_label="layout_logo_src",
+                output_label="layout_logo",
+                logo_x_percent=logo_x_percent,
+                logo_y_percent=logo_y_percent,
+            )
+        )
+        current_label = "layout_logo"
 
     cleaned_caption = _normalize_overlay_text(caption_text or "")
     if cleaned_caption and caption_input_index is not None:
@@ -1666,6 +1781,11 @@ def _build_reaction_timeline_filter_complex(
     youtube_credit_textfile_path: Path | None = None,
     youtube_credit_position: str = "below_frame",
     font_file: Path | None = None,
+    logo_input_index: int | None = None,
+    logo_x_percent: float = 82.0,
+    logo_y_percent: float = 5.0,
+    logo_width_percent: float = 15.0,
+    logo_opacity: float = 100.0,
 ) -> tuple[str, str, dict[str, Any]]:
     filters: list[str] = []
     output_labels: list[str] = []
@@ -1721,6 +1841,27 @@ def _build_reaction_timeline_filter_complex(
             "[timeline_credit]"
         )
         current_label = "timeline_credit"
+
+    if logo_input_index is not None:
+        filters.append(
+            _build_logo_input_filter(
+                logo_input_index=logo_input_index,
+                output_width=output_width,
+                logo_width_percent=logo_width_percent,
+                logo_opacity=logo_opacity,
+                output_label="timeline_logo_src",
+            )
+        )
+        filters.append(
+            _build_logo_overlay_filter(
+                base_label=current_label,
+                logo_label="timeline_logo_src",
+                output_label="timeline_logo",
+                logo_x_percent=logo_x_percent,
+                logo_y_percent=logo_y_percent,
+            )
+        )
+        current_label = "timeline_logo"
 
     if subtitle_ass_path is not None:
         from .subtitles import build_subtitle_filter
@@ -2241,6 +2382,12 @@ def render_parts(
     show_youtube_credit: bool = False,
     youtube_credit_text: str | None = None,
     youtube_credit_position: str = "below_frame",
+    logo_enabled: bool = False,
+    logo_path: str | Path | None = None,
+    logo_x_percent: float = 82.0,
+    logo_y_percent: float = 5.0,
+    logo_width_percent: float = 15.0,
+    logo_opacity: float = 100.0,
 ) -> list[RenderedPart]:
     out_dir = out_dir.resolve()
     input_video = input_video.resolve()
@@ -2283,6 +2430,11 @@ def render_parts(
     if isinstance(source_info, dict):
         source_channel_credit = _normalize_overlay_text(source_info.get("channel") or source_info.get("uploader") or "")
     normalized_youtube_credit = _normalize_overlay_text(youtube_credit_text or "") or source_channel_credit
+    resolved_logo_path = _resolve_logo_path(logo_path) if logo_enabled else None
+    safe_logo_x_percent = _clamp_percent(logo_x_percent, fallback=82.0)
+    safe_logo_y_percent = _clamp_percent(logo_y_percent, fallback=5.0)
+    safe_logo_width_percent = max(1.0, min(100.0, float(logo_width_percent)))
+    safe_logo_opacity = max(0.0, min(100.0, float(logo_opacity)))
     timeline_fallback = {
         "start": "00:00:00",
         "end": "00:00:01",
@@ -2331,6 +2483,7 @@ def render_parts(
         for idx, seg in enumerate(segments, start=1)
     ]
     part_commands: list[dict[str, Any]] = []
+    description_txt_path = out_dir / "descriptions.txt"
 
     y_scale_debug: dict[str, float | str] | None = None
     effective_y_scale_for_filter: float | None = None
@@ -2380,6 +2533,7 @@ def render_parts(
         f"manual_caption_text={'yes' if normalized_manual_caption else 'no'}, "
         f"hashtags={'yes' if normalized_hashtags else 'no'}, "
         f"youtube_credit={'yes' if show_youtube_credit and normalized_youtube_credit else 'no'}, "
+        f"logo={'yes' if resolved_logo_path else 'no'}, "
         f"reaction_layout_enabled={y_scale_mode == 'reaction_layout'}, "
         f"reaction_timeline_rows={len(normalized_reaction_timeline)}"
     )
@@ -2458,10 +2612,7 @@ def render_parts(
         part_title = _normalize_overlay_text(
             part_metadata.get("title")
             or (chapter_titles[idx - 1] if chapter_titles and idx <= len(chapter_titles) else "")
-            or normalized_manual_caption
             or segment_caption
-            or normalized_reaction_caption
-            or base_title
             or f"Part {idx}"
         )
         upload_description = _build_upload_description(part_title, idx, normalized_hashtags)
@@ -2539,6 +2690,11 @@ def render_parts(
                     )
                     caption_pngs.append(caption_path)
                     caption_input_indexes[interval_index] = len(caption_pngs)
+                logo_inputs: list[str] = []
+                logo_input_index: int | None = None
+                if resolved_logo_path is not None:
+                    logo_input_index = 1 + len(caption_pngs)
+                    logo_inputs = ["-loop", "1", "-i", str(resolved_logo_path)]
                 video_filter, video_map, reaction_debug = _build_reaction_timeline_filter_complex(
                     source_width=source_dims[0],
                     source_height=source_dims[1],
@@ -2552,6 +2708,11 @@ def render_parts(
                     youtube_credit_textfile_path=youtube_credit_textfile_path,
                     youtube_credit_position=youtube_credit_position,
                     font_file=font_file,
+                    logo_input_index=logo_input_index,
+                    logo_x_percent=safe_logo_x_percent,
+                    logo_y_percent=safe_logo_y_percent,
+                    logo_width_percent=safe_logo_width_percent,
+                    logo_opacity=safe_logo_opacity,
                 )
                 caption_inputs: list[str] = []
                 for caption_png in caption_pngs:
@@ -2569,6 +2730,7 @@ def render_parts(
                     "-i",
                     str(input_video),
                     *caption_inputs,
+                    *logo_inputs,
                     "-filter_complex",
                     video_filter,
                     "-map",
@@ -2602,6 +2764,11 @@ def render_parts(
                         output_width=output_width,
                     )
                     caption_input_index = 1
+                logo_inputs: list[str] = []
+                logo_input_index: int | None = None
+                if resolved_logo_path is not None:
+                    logo_input_index = 2 if caption_input_index is not None else 1
+                    logo_inputs = ["-loop", "1", "-i", str(resolved_logo_path)]
                 video_filter, video_map, reaction_debug = _build_reaction_filter_complex(
                     source_width=source_dims[0],
                     source_height=source_dims[1],
@@ -2621,6 +2788,11 @@ def render_parts(
                     youtube_credit_textfile_path=youtube_credit_textfile_path,
                     youtube_credit_position=youtube_credit_position,
                     font_file=font_file,
+                    logo_input_index=logo_input_index,
+                    logo_x_percent=safe_logo_x_percent,
+                    logo_y_percent=safe_logo_y_percent,
+                    logo_width_percent=safe_logo_width_percent,
+                    logo_opacity=safe_logo_opacity,
                 )
                 cmd = [
                     ffmpeg_bin,
@@ -2631,6 +2803,7 @@ def render_parts(
                     "-i",
                     str(input_video),
                     *((["-loop", "1", "-i", str(caption_png)]) if caption_png else []),
+                    *logo_inputs,
                     "-ss",
                     format_ffmpeg_time(segment.start),
                     "-t",
@@ -2658,6 +2831,133 @@ def render_parts(
                     *((["-af", atempo_filter]) if atempo_filter else []),
                     str(output_path),
                 ]
+        elif resolved_logo_path is not None:
+            base_filter = build_video_filter(
+                part_number=idx,
+                crop_top_px=crop_top_px,
+                output_width=output_width,
+                output_height=output_height,
+                video_y_scale=video_y_scale,
+                y_scale_mode=segment_y_scale_mode,
+                edge_bar_px=safe_edge_bar_px,
+                content_height_bump_px=safe_content_height_bump_px,
+                content_max_height_px=safe_content_max_height_px,
+                zoom_target_height=zoom_target_height_for_filter,
+                effective_y_scale=effective_y_scale_for_filter,
+                autozoom_rect=autozoom_rect,
+                render_preset=segment_render_preset,
+                title_mask_px=title_mask_px,
+                part_overlay_enabled=False,
+                part_label_position=part_label_position,
+                label_x_pct=safe_label_x_pct,
+                label_y_pct=safe_label_y_pct,
+                part_label_x_percent=safe_part_label_x_percent,
+                part_label_y_percent=safe_part_label_y_percent,
+                font_file=font_file,
+                chapter_title="",
+                chapter_title_position=chapter_title_position,
+                manual_caption_text=None,
+                overlay_x_percent=safe_overlay_x_percent,
+                overlay_y_percent=safe_overlay_y_percent,
+                playback_speed=safe_speed,
+                subtitle_ass_path=None,
+                textfile_dir=out_dir,
+                show_youtube_credit=show_youtube_credit,
+                youtube_credit_text=normalized_youtube_credit,
+                youtube_credit_position=youtube_credit_position,
+            )
+            post_filters: list[str] = []
+            caption_for_drawtext = normalized_manual_caption or segment_caption or (
+                chapter_titles[idx - 1] if chapter_titles and idx <= len(chapter_titles) else ""
+            )
+            if caption_for_drawtext:
+                written_caption = write_drawtext_textfile(caption_for_drawtext, out_dir, f"caption_part_{idx}.txt")
+                post_filters.append(
+                    _build_chapter_drawtext_filter(
+                        Path(written_caption.name),
+                        font_file,
+                        safe_overlay_x_percent,
+                        safe_overlay_y_percent,
+                    )
+                )
+            if part_overlay_enabled:
+                written_label = write_drawtext_textfile(f"Part {idx}", out_dir, f"part_label_{idx}.txt")
+                post_filters.append(
+                    _build_part_drawtext_filter(
+                        textfile_path=Path(written_label.name),
+                        part_label_position=part_label_position,
+                        label_x_pct=safe_label_x_pct,
+                        label_y_pct=safe_label_y_pct,
+                        part_label_x_percent=safe_part_label_x_percent,
+                        part_label_y_percent=safe_part_label_y_percent,
+                        font_file=font_file,
+                    )
+                )
+            if subtitle_filter_target is not None:
+                from .subtitles import build_subtitle_filter
+
+                post_filters.append(build_subtitle_filter(subtitle_filter_target))
+            post_filters.append("format=yuv420p,setsar=1")
+            video_filter = ";".join(
+                [
+                    f"[0:v]{base_filter}[basev]",
+                    _build_logo_input_filter(
+                        logo_input_index=1,
+                        output_width=output_width,
+                        logo_width_percent=safe_logo_width_percent,
+                        logo_opacity=safe_logo_opacity,
+                        output_label="logo_src",
+                    ),
+                    _build_logo_overlay_filter(
+                        base_label="basev",
+                        logo_label="logo_src",
+                        output_label="logo_base",
+                        logo_x_percent=safe_logo_x_percent,
+                        logo_y_percent=safe_logo_y_percent,
+                    ),
+                    f"[logo_base]{','.join(post_filters)}[vout]",
+                ]
+            )
+
+            cmd = [
+                ffmpeg_bin,
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                str(input_video),
+                "-loop",
+                "1",
+                "-i",
+                str(resolved_logo_path),
+                "-ss",
+                format_ffmpeg_time(segment.start),
+                "-t",
+                format_ffmpeg_time(segment.duration),
+                "-filter_complex",
+                video_filter,
+                "-map",
+                "[vout]",
+                "-map",
+                "0:a?",
+                "-c:v",
+                "libx264",
+                "-preset",
+                preset,
+                "-crf",
+                str(crf),
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "192k",
+                "-movflags",
+                "+faststart",
+                *((["-af", atempo_filter]) if atempo_filter else []),
+                str(output_path),
+            ]
         else:
             video_filter = build_video_filter(
                 part_number=idx,
@@ -2731,7 +3031,8 @@ def render_parts(
         _write_windows_cmd(cmd_run_path, cmd, cwd=ffmpeg_cwd)
 
         command_shell_text = _command_to_shell_text(cmd)
-        log_fn(f"FFmpeg {'filter_complex' if segment_y_scale_mode == 'reaction_layout' else '-vf'} (part {idx}): {video_filter}")
+        filter_kind = "filter_complex" if segment_y_scale_mode == "reaction_layout" or resolved_logo_path is not None else "-vf"
+        log_fn(f"FFmpeg {filter_kind} (part {idx}): {video_filter}")
         if ffmpeg_cwd is not None:
             log_fn(f"FFmpeg cwd (part {idx}): {ffmpeg_cwd}")
         log_fn(f"FFmpeg cmd (part {idx}): {command_shell_text}")
@@ -2762,6 +3063,7 @@ def render_parts(
                 "title": part_title,
                 "upload_description": upload_description,
                 "hashtags": normalized_hashtags,
+                "description_file": str(description_txt_path.resolve()),
                 "suggested_filename": suggested_filename,
                 "vf": video_filter,
                 "ffmpeg_cmd": cmd,
@@ -2791,6 +3093,12 @@ def render_parts(
                 "show_youtube_credit": show_youtube_credit,
                 "youtube_credit_text": normalized_youtube_credit,
                 "youtube_credit_position": youtube_credit_position,
+                "logo_enabled": bool(resolved_logo_path),
+                "logo_path": str(resolved_logo_path) if resolved_logo_path else "",
+                "logo_x_percent": safe_logo_x_percent,
+                "logo_y_percent": safe_logo_y_percent,
+                "logo_width_percent": safe_logo_width_percent,
+                "logo_opacity": safe_logo_opacity,
                 "tiktok_probe": tiktok_probe_block,
             }
         )
@@ -2800,6 +3108,10 @@ def render_parts(
                 start=segment.start,
                 end=segment.end,
                 path=output_path,
+                title=part_title,
+                hashtags=normalized_hashtags,
+                upload_description=upload_description,
+                description_file=description_txt_path,
                 start_time=format_ffmpeg_time(segment.start),
                 end_time=format_ffmpeg_time(segment.end),
                 vf=video_filter,
@@ -2833,10 +3145,20 @@ def render_parts(
         for line in known_good_report["tiktok_probe_diff"]:
             log_fn(f"known_good_tiktok_diff: {line}")
 
+    description_exports = _write_description_exports(out_dir, part_commands)
+    for part_row in part_commands:
+        part_row["description_file"] = description_exports["txt"]
+    log_fn(f"Descriptions written: {Path(description_exports['txt']).name}, {Path(description_exports['json']).name}")
+
     manifest = {
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "input_source": str(input_video.resolve()),
         "output_dir": str(out_dir.resolve()),
+        "description_files": {
+            "txt": description_exports["txt"],
+            "json": description_exports["json"],
+        },
+        "descriptions": description_exports["items"],
         "render_preset": render_preset,
         "render_params": {
             "crop_top_px": crop_top_px,
@@ -2896,6 +3218,12 @@ def render_parts(
             "show_youtube_credit": show_youtube_credit,
             "youtube_credit_text": normalized_youtube_credit,
             "youtube_credit_position": youtube_credit_position,
+            "logo_enabled": bool(resolved_logo_path),
+            "logo_path": str(resolved_logo_path) if resolved_logo_path else "",
+            "logo_x_percent": safe_logo_x_percent,
+            "logo_y_percent": safe_logo_y_percent,
+            "logo_width_percent": safe_logo_width_percent,
+            "logo_opacity": safe_logo_opacity,
             "reaction_layout_enabled": y_scale_mode == "reaction_layout",
             "reaction_layout_mode": reaction_layout_mode,
             "reaction_layout_preset": reaction_layout_preset,
@@ -2939,6 +3267,14 @@ def rendered_parts_to_dict(parts: list[RenderedPart]) -> list[dict[str, Any]]:
             "end_seconds": round(item.end, 3),
             "path": str(item.path),
         }
+        if item.title:
+            row["title"] = item.title
+        if item.hashtags:
+            row["hashtags"] = item.hashtags
+        if item.upload_description:
+            row["upload_description"] = item.upload_description
+        if item.description_file is not None:
+            row["description_file"] = str(item.description_file)
         if item.vf:
             row["vf"] = item.vf
         if item.ffmpeg_cmd is not None:
